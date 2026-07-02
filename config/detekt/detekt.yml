@@ -1,0 +1,26 @@
+build:
+  maxIssues: 0
+
+config:
+  validation: true
+
+complexity:
+  LongMethod:
+    active: true
+    threshold: 60
+  LongParameterList:
+    active: true
+    functionThreshold: 6
+    constructorThreshold: 11
+    ignoreDefaultParameters: true
+    ignoreDataClasses: true
+    ignoreAnnotatedParameter: []
+
+style:
+  ReturnCount:
+    active: true
+    max: 2
+    excludedFunctions:
+      - 'equals'
+  MagicNumber:
+    active: false
