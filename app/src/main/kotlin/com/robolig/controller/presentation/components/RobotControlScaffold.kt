@@ -45,7 +45,6 @@ data class RobotControlFrameActions(
     val onModeSelected: (RobotMode) -> Unit,
     val onEmergencyStop: () -> Unit,
     val onOpenSettings: () -> Unit,
-    val onOpenAbout: () -> Unit,
 )
 
 @Composable
@@ -56,6 +55,7 @@ fun RobotControlScaffold(
     sideActions: List<RailAction>,
     frameActions: RobotControlFrameActions,
     modifier: Modifier = Modifier,
+    rightRailContent: (@Composable ColumnScope.() -> Unit)? = null,
     overlayContent: @Composable BoxScope.() -> Unit,
 ) {
     val spacing = RoboligTheme.spacing
@@ -73,8 +73,10 @@ fun RobotControlScaffold(
     ) {
         TelemetryBar(
             robotState = robotState,
+            selectedMode = selectedMode,
+            onModeSelected = frameActions.onModeSelected,
+            onEmergencyStop = frameActions.onEmergencyStop,
             onOpenSettings = frameActions.onOpenSettings,
-            onOpenAbout = frameActions.onOpenAbout,
         )
 
         Box(modifier = Modifier.fillMaxSize()) {
@@ -91,10 +93,6 @@ fun RobotControlScaffold(
                         .padding(start = spacing.section, top = spacing.section, bottom = spacing.section)
                         .width(spacing.railWidth),
             ) {
-                EmergencyStopButton(
-                    onClick = frameActions.onEmergencyStop,
-                    modifier = Modifier.fillMaxWidth(),
-                )
                 sideActions.forEach { action ->
                     when (action.style) {
                         RailActionStyle.STANDARD ->
@@ -121,21 +119,15 @@ fun RobotControlScaffold(
                 }
             }
 
-            RailContainer(
-                modifier =
-                    Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(end = spacing.section, top = spacing.section, bottom = spacing.section)
-                        .width(spacing.railWidth),
-            ) {
-                RobotMode.entries.forEach { mode ->
-                    RoboligModeButton(
-                        label = mode.displayName,
-                        selected = mode == selectedMode,
-                        onClick = { frameActions.onModeSelected(mode) },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
+            if (rightRailContent != null) {
+                RailContainer(
+                    modifier =
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(end = spacing.section, top = spacing.section, bottom = spacing.section)
+                            .width(spacing.railWidth),
+                    content = rightRailContent,
+                )
             }
         }
     }

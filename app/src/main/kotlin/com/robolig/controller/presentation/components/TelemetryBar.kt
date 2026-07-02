@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -25,6 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.robolig.controller.core.asDisplayValue
 import com.robolig.controller.core.asSpeedLabel
+import com.robolig.controller.domain.model.RobotMode
 import com.robolig.controller.domain.model.RobotState
 import com.robolig.controller.presentation.theme.RoboligTheme
 
@@ -32,11 +34,17 @@ import com.robolig.controller.presentation.theme.RoboligTheme
 @Composable
 fun TelemetryBar(
     robotState: RobotState,
+    selectedMode: RobotMode,
+    onModeSelected: (RobotMode) -> Unit,
+    onEmergencyStop: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenAbout: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val spacing = RoboligTheme.spacing
+    val barHorizontalPadding = spacing.section
+    val barVerticalPadding = spacing.compact + 4.dp
+    val clusterSpacing = spacing.item
+    val itemSpacing = spacing.compact
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
@@ -44,36 +52,50 @@ fun TelemetryBar(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = spacing.page, vertical = spacing.panel),
+            modifier = Modifier.padding(horizontal = barHorizontalPadding, vertical = barVerticalPadding),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(spacing.section),
+            horizontalArrangement = Arrangement.spacedBy(clusterSpacing),
         ) {
             FlowRow(
                 modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(spacing.section),
-                verticalArrangement = Arrangement.spacedBy(spacing.compact),
+                horizontalArrangement = Arrangement.spacedBy(clusterSpacing),
+                verticalArrangement = Arrangement.spacedBy(itemSpacing),
             ) {
                 TelemetryItem(label = "Battery", value = robotState.battery.percentage.asDisplayValue("%"))
                 TelemetryItem(label = "Connection", value = robotState.connectionState.displayName)
                 TelemetryItem(label = "Signal", value = robotState.signal.strengthPercent.asDisplayValue("%"))
-                TelemetryItem(label = "Mode", value = robotState.currentMode.displayName)
                 TelemetryItem(label = "Speed", value = robotState.speedMetersPerSecond.asSpeedLabel())
                 TelemetryItem(
                     label = "Task",
                     value = robotState.mission.currentTask,
-                    modifier = Modifier.widthIn(min = 132.dp, max = 220.dp),
+                    modifier = Modifier.widthIn(min = 110.dp, max = 180.dp),
                 )
                 TelemetryItem(label = "FPS", value = robotState.camera.framesPerSecond.asDisplayValue())
                 TelemetryItem(label = "Latency", value = robotState.telemetry.latencyMs.asDisplayValue(" ms"))
             }
 
-            WarningChip(
-                message = robotState.warnings.firstOrNull(),
-                modifier = Modifier.widthIn(max = 260.dp),
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(spacing.compact)) {
+            FlowRow(
+                modifier = Modifier.wrapContentWidth(),
+                horizontalArrangement = Arrangement.spacedBy(itemSpacing),
+                verticalArrangement = Arrangement.spacedBy(itemSpacing),
+            ) {
+                RobotMode.entries.forEach { mode ->
+                    RoboligModeButton(
+                        label = mode.displayName,
+                        selected = mode == selectedMode,
+                        onClick = { onModeSelected(mode) },
+                        modifier = Modifier.widthIn(min = 74.dp),
+                    )
+                }
+                WarningChip(
+                    message = robotState.warnings.firstOrNull(),
+                    modifier = Modifier.widthIn(max = 210.dp),
+                )
+                EmergencyStopButton(
+                    onClick = onEmergencyStop,
+                    compact = true,
+                )
                 CompactTextButton(label = "Settings", onClick = onOpenSettings)
-                CompactTextButton(label = "About", onClick = onOpenAbout)
             }
         }
     }
@@ -86,8 +108,8 @@ private fun TelemetryItem(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.wrapContentWidth(),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+        modifier = modifier.widthIn(min = 54.dp).wrapContentWidth(),
+        verticalArrangement = Arrangement.spacedBy(1.dp),
     ) {
         Text(
             text = label.uppercase(),
@@ -96,8 +118,8 @@ private fun TelemetryItem(
         )
         Text(
             text = value,
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.Medium,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -117,13 +139,13 @@ private fun WarningChip(
         modifier = modifier,
         color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(14.dp),
     ) {
         Text(
             text = message,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            style = MaterialTheme.typography.labelMedium,
-            maxLines = 2,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+            style = MaterialTheme.typography.labelSmall,
+            maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
     }
@@ -136,14 +158,17 @@ private fun CompactTextButton(
 ) {
     Surface(
         onClick = onClick,
-        modifier = Modifier.widthIn(min = 88.dp),
+        modifier =
+            Modifier
+                .widthIn(min = 74.dp)
+                .heightIn(min = 40.dp),
         color = MaterialTheme.colorScheme.surfaceVariant,
         contentColor = MaterialTheme.colorScheme.onSurface,
         shape = RoundedCornerShape(14.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
     ) {
         Box(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
             contentAlignment = Alignment.Center,
         ) {
             Text(

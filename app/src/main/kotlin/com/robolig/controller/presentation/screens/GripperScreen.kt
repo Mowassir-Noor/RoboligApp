@@ -5,7 +5,7 @@ package com.robolig.controller.presentation.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -46,6 +46,38 @@ fun GripperScreen(
                 ),
             ),
         frameActions = actions.frameActions,
+        rightRailContent = {
+            RoboligModeButton(
+                label = "Open",
+                selected = robotState.arm.gripperOpen,
+                onClick = { actions.onGripperOpenChanged(true) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            RoboligModeButton(
+                label = "Close",
+                selected = !robotState.arm.gripperOpen,
+                onClick = { actions.onGripperOpenChanged(false) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            RoboligModeButton(
+                label = "Home",
+                selected = robotState.arm.activePreset == "Home",
+                onClick = { actions.onPresetActivated("Home") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            RoboligModeButton(
+                label = "Pick",
+                selected = robotState.arm.activePreset == "Pick",
+                onClick = { actions.onPresetActivated("Pick") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            RoboligModeButton(
+                label = "Place",
+                selected = robotState.arm.activePreset == "Place",
+                onClick = { actions.onPresetActivated("Place") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
     ) {
         val railClearance = spacing.railWidth + spacing.section * 1.8f
         ModeHeading(
@@ -68,42 +100,12 @@ fun GripperScreen(
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Text(text = "Up / Down / Left / Right", style = MaterialTheme.typography.labelMedium)
+                Text(text = "ARM: Up/Down + Left/Right", style = MaterialTheme.typography.labelMedium)
                 Text(
-                    text = "Forward / Backward / Wrist",
+                    text = "WRIST: Forward/Back + Rotate",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    RoboligModeButton(
-                        label = "Open",
-                        selected = robotState.arm.gripperOpen,
-                        onClick = { actions.onGripperOpenChanged(true) },
-                    )
-                    RoboligModeButton(
-                        label = "Close",
-                        selected = !robotState.arm.gripperOpen,
-                        onClick = { actions.onGripperOpenChanged(false) },
-                    )
-                    RoboligModeButton(
-                        label = "Home",
-                        selected = robotState.arm.activePreset == "Home",
-                        onClick = { actions.onPresetActivated("Home") },
-                    )
-                    RoboligModeButton(
-                        label = "Pick",
-                        selected = robotState.arm.activePreset == "Pick",
-                        onClick = { actions.onPresetActivated("Pick") },
-                    )
-                    RoboligModeButton(
-                        label = "Place",
-                        selected = robotState.arm.activePreset == "Place",
-                        onClick = { actions.onPresetActivated("Place") },
-                    )
-                }
             }
         }
         Column(

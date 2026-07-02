@@ -65,7 +65,7 @@ fun RoboligMomentaryButton(
     Surface(
         modifier =
             modifier
-                .heightIn(min = 56.dp)
+                .heightIn(min = 42.dp)
                 .pointerInput(label) {
                     detectTapGestures(
                         onPress = {
@@ -79,18 +79,18 @@ fun RoboligMomentaryButton(
                     contentDescription = label
                     role = Role.Button
                 },
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(14.dp),
         color = MaterialTheme.colorScheme.surfaceVariant,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
     ) {
         Box(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 12.dp),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = label,
                 textAlign = TextAlign.Center,
-                style = MaterialTheme.typography.labelLarge,
+                style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -103,14 +103,16 @@ fun RoboligMomentaryButton(
 fun EmergencyStopButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    compact: Boolean = false,
 ) {
     RoboligActionButton(
-        label = "EMERGENCY",
+        label = if (compact) "E-STOP" else "EMERGENCY",
         modifier = modifier,
         accent = true,
         onClick = onClick,
         description = "Emergency stop",
         emphasis = true,
+        compact = compact,
     )
 }
 
@@ -122,6 +124,7 @@ private fun RoboligActionButton(
     accent: Boolean = false,
     description: String = label,
     emphasis: Boolean = false,
+    compact: Boolean = true,
 ) {
     val backgroundColor =
         when {
@@ -135,28 +138,33 @@ private fun RoboligActionButton(
             accent -> MaterialTheme.colorScheme.onPrimaryContainer
             else -> MaterialTheme.colorScheme.onSurface
         }
+    val minimumHeight = if (compact) 42.dp else 56.dp
+    val cornerRadius = if (compact) 14.dp else 18.dp
+    val horizontalPadding = if (compact) 10.dp else 10.dp
+    val verticalPadding = if (compact) 8.dp else 12.dp
+    val textStyle = if (compact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge
 
     Surface(
         modifier =
             modifier
-                .heightIn(min = 56.dp)
+                .heightIn(min = minimumHeight)
                 .semantics {
                     contentDescription = description
                     role = Role.Button
                 },
         onClick = onClick,
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(cornerRadius),
         color = backgroundColor,
         contentColor = contentColor,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
     ) {
         Box(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 12.dp),
+            modifier = Modifier.padding(horizontal = horizontalPadding, vertical = verticalPadding),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelLarge,
+                style = textStyle,
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
                 maxLines = 2,
