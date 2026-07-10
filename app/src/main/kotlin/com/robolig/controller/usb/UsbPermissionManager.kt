@@ -10,8 +10,6 @@ import android.hardware.usb.UsbManager
 import android.os.Build
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -44,8 +42,6 @@ class UsbPermissionManager
                 }
             }
 
-        val pendingRequests: StateFlow<Set<Int>> = pendingRequestState.asStateFlow()
-
         init {
             val permissionFilter = IntentFilter(ACTION_USB_PERMISSION)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -53,11 +49,6 @@ class UsbPermissionManager
             } else {
                 context.registerReceiver(permissionReceiver, permissionFilter)
             }
-        }
-
-        fun hasPermissionForAnyAttachedDevice(): Boolean {
-            val usbManager = context.getSystemService(UsbManager::class.java) ?: return false
-            return usbManager.deviceList.values.any { device -> usbManager.hasPermission(device) }
         }
 
         fun hasPermission(device: UsbDevice): Boolean {

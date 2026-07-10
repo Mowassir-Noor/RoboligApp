@@ -246,6 +246,19 @@ class CommunicationSystemController
             )
             logger.w(LogTag.SAFETY, "Emergency stop queued")
         }
+
+        suspend fun resetEmergencyStop() {
+            val state = stateStore.state.value
+            if (!state.safety.emergencyStopLatched && !state.safety.watchdogTriggered) {
+                return
+            }
+            stateStore.update { currentState ->
+                applyMode(currentState, currentState.currentMode).copy(
+                    errors = currentState.errors + "Emergency stop released",
+                )
+            }
+            logger.i(LogTag.SAFETY, "Emergency stop released by operator")
+        }
     }
 
 internal fun applyMode(

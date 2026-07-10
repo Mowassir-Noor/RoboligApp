@@ -14,6 +14,9 @@ object ControlLoopConstants {
     const val TELEMETRY_HZ = 10
     const val HEARTBEAT_INTERVAL_MS = 500L
     const val WATCHDOG_TIMEOUT_MS = 2_000L
+    const val VEHICLE_CONTROL_PERIOD_MS = 1_000L / VEHICLE_CONTROL_HZ
+    const val ARM_CONTROL_PERIOD_MS = 1_000L / ARM_CONTROL_HZ
+    const val TELEMETRY_PERIOD_MS = 1_000L / TELEMETRY_HZ
 }
 
 object ProtocolConstants {
@@ -67,6 +70,7 @@ object VideoConstants {
     const val RECONNECT_DELAY_MS = 1_500L
     const val MAX_RECONNECT_DELAY_MS = 8_000L
     const val FRAME_HISTORY_WINDOW_MS = 1_000L
+    const val INITIAL_FRAME_BUFFER_BYTES = 65_536
 }
 
 object PreferenceConstants {

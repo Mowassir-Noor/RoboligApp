@@ -4,6 +4,7 @@ import com.robolig.controller.protocol.Packet
 import com.robolig.controller.protocol.PacketPriority
 import com.robolig.controller.protocol.PacketType
 import com.robolig.controller.utils.MonotonicClock
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,6 +34,7 @@ class CommandQueue(
             compareBy<QueuedPacket>({ it.priority.order }, { it.sequenceId }),
         )
     private val queueDepthState = MutableStateFlow(0)
+    private val packetAvailable = Channel<Unit>(Channel.CONFLATED)
 
     val queueDepth: StateFlow<Int> = queueDepthState.asStateFlow()
 
@@ -54,17 +56,14 @@ class CommandQueue(
             queue.add(queuedPacket)
             queueDepthState.value = queue.size
             queuedPacket
-        }
+        }.also { packetAvailable.trySend(Unit) }
 
     suspend fun poll(): QueuedPacket? =
         queueMutex.withLock {
             queue.poll().also { queueDepthState.value = queue.size }
         }
 
-    suspend fun snapshot(): List<QueuedPacket> =
-        queueMutex.withLock {
-            queue.toList().sortedWith(compareBy({ it.priority.order }, { it.sequenceId }))
-        }
+    fun packetAvailableSignal(): Channel<Unit> = packetAvailable
 
     suspend fun clear() {
         queueMutex.withLock {

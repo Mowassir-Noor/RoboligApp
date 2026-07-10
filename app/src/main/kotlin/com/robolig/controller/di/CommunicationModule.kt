@@ -1,14 +1,11 @@
 package com.robolig.controller.di
 
 import com.robolig.controller.communication.CommandQueue
-import com.robolig.controller.communication.PacketScheduler
 import com.robolig.controller.protocol.BinaryPacketBuilder
-import com.robolig.controller.protocol.BinaryPacketEncoder
 import com.robolig.controller.protocol.BinaryPacketParser
 import com.robolig.controller.protocol.Checksum
 import com.robolig.controller.protocol.PacketBuilder
 import com.robolig.controller.protocol.PacketDecoder
-import com.robolig.controller.protocol.PacketEncoder
 import com.robolig.controller.protocol.PacketParser
 import com.robolig.controller.protocol.ProtocolPacketDecoder
 import com.robolig.controller.protocol.XorChecksum
@@ -30,9 +27,6 @@ abstract class CommunicationModule {
     abstract fun bindPacketBuilder(binaryPacketBuilder: BinaryPacketBuilder): PacketBuilder
 
     @Binds
-    abstract fun bindPacketEncoder(binaryPacketEncoder: BinaryPacketEncoder): PacketEncoder
-
-    @Binds
     abstract fun bindPacketParser(binaryPacketParser: BinaryPacketParser): PacketParser
 
     @Binds
@@ -42,9 +36,5 @@ abstract class CommunicationModule {
         @Provides
         @Singleton
         fun provideCommandQueue(clock: MonotonicClock): CommandQueue = CommandQueue(clock)
-
-        @Provides
-        @Singleton
-        fun providePacketScheduler(): PacketScheduler = PacketScheduler()
     }
 }

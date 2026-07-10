@@ -171,6 +171,15 @@ class FakeRobotRepository(
                     )
                 }
             }
+
+            override suspend fun resetEmergencyStop() {
+                robotStateFlow.update { currentState ->
+                    currentState.copy(
+                        vehicle = currentState.vehicle.copy(brakePercent = 0, locked = false),
+                        safety = currentState.safety.copy(emergencyStopLatched = false),
+                    )
+                }
+            }
         }
 
     override val videoController: VideoController =

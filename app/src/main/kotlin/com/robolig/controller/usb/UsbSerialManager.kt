@@ -1,9 +1,13 @@
 package com.robolig.controller.usb
 
 import android.annotation.SuppressLint
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.hardware.usb.UsbConstants
+import android.os.Build
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbEndpoint
@@ -39,6 +43,7 @@ private const val CDC_SET_LINE_CODING = 0x20
 private const val CDC_SET_CONTROL_LINE_STATE = 0x22
 private const val CDC_REQUEST_TYPE = 0x21
 private const val CDC_CONTROL_LINE_DTR_RTS = 0x03
+private const val USB_FALLBACK_POLL_MS = 30_000L
 
 private data class UsbEndpointProfile(
     val controlInterface: UsbInterface?,
@@ -80,11 +85,40 @@ class UsbSerialManager
         val incomingPackets: SharedFlow<ByteArray> = incomingPacketFlow.asSharedFlow()
 
         init {
+            registerAttachmentReceiver()
+            refreshConnectionState()
             applicationScope.launch {
                 while (isActive) {
+                    delay(USB_FALLBACK_POLL_MS)
                     refreshConnectionState()
-                    delay(1_000L)
                 }
+            }
+        }
+
+        private val attachmentReceiver =
+            object : BroadcastReceiver() {
+                override fun onReceive(
+                    context: Context,
+                    intent: Intent,
+                ) {
+                    when (intent.action) {
+                        UsbManager.ACTION_USB_DEVICE_ATTACHED,
+                        UsbManager.ACTION_USB_DEVICE_DETACHED,
+                        -> refreshConnectionState()
+                    }
+                }
+            }
+
+        private fun registerAttachmentReceiver() {
+            val filter =
+                IntentFilter().apply {
+                    addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
+                    addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
+                }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.registerReceiver(attachmentReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                context.registerReceiver(attachmentReceiver, filter)
             }
         }
 

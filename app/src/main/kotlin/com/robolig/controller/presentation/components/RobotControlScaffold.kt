@@ -44,6 +44,7 @@ data class RailAction(
 data class RobotControlFrameActions(
     val onModeSelected: (RobotMode) -> Unit,
     val onEmergencyStop: () -> Unit,
+    val onEmergencyStopReset: () -> Unit,
     val onOpenSettings: () -> Unit,
 )
 
@@ -76,6 +77,7 @@ fun RobotControlScaffold(
             selectedMode = selectedMode,
             onModeSelected = frameActions.onModeSelected,
             onEmergencyStop = frameActions.onEmergencyStop,
+            onEmergencyStopReset = frameActions.onEmergencyStopReset,
             onOpenSettings = frameActions.onOpenSettings,
         )
 

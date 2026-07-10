@@ -37,6 +37,7 @@ fun TelemetryBar(
     selectedMode: RobotMode,
     onModeSelected: (RobotMode) -> Unit,
     onEmergencyStop: () -> Unit,
+    onEmergencyStopReset: () -> Unit,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -64,7 +65,7 @@ fun TelemetryBar(
                 TelemetryItem(label = "Battery", value = robotState.battery.percentage.asDisplayValue("%"))
                 TelemetryItem(label = "Connection", value = robotState.connectionState.displayName)
                 TelemetryItem(label = "Signal", value = robotState.signal.strengthPercent.asDisplayValue("%"))
-                TelemetryItem(label = "Speed", value = robotState.speedMetersPerSecond.asSpeedLabel())
+                TelemetryItem(label = "Speed", value = robotState.vehicle.speedMetersPerSecond.asSpeedLabel())
                 TelemetryItem(
                     label = "Task",
                     value = robotState.mission.currentTask,
@@ -93,6 +94,8 @@ fun TelemetryBar(
                 )
                 EmergencyStopButton(
                     onClick = onEmergencyStop,
+                    onReset = onEmergencyStopReset,
+                    armed = robotState.safety.emergencyStopLatched,
                     compact = true,
                 )
                 CompactTextButton(label = "Settings", onClick = onOpenSettings)

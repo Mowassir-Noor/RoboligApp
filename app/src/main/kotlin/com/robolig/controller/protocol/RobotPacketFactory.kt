@@ -88,28 +88,6 @@ class RobotPacketFactory
                 timestampMillis = timestamp(),
             )
 
-        fun createPtzControlPacket(
-            pan: Int,
-            tilt: Int,
-            zoom: Int,
-            robotMode: RobotMode,
-            safetyState: SafetyState,
-        ): Packet =
-            Packet(
-                type = PacketType.PTZ_CONTROL,
-                sequenceNumber = sequenceGenerator.next(),
-                flags =
-                    buildFlags(
-                        robotMode,
-                        safetyState,
-                        precisionMode = false,
-                        armLocked = false,
-                        vehicleLocked = false,
-                    ),
-                payload = PtzControlPayload(pan = pan, tilt = tilt, zoom = zoom).toPayloadBytes(),
-                timestampMillis = timestamp(),
-            )
-
         fun createTelemetryRequestPacket(
             robotMode: RobotMode,
             safetyState: SafetyState,

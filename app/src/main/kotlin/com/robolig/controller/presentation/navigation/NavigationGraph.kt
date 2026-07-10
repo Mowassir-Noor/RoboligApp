@@ -66,6 +66,7 @@ fun NavigationGraph() {
                             RobotControlFrameActions(
                                 onModeSelected = { mode -> navigateTo(mode.route) },
                                 onEmergencyStop = mainViewModel::triggerEmergencyStop,
+                                onEmergencyStopReset = mainViewModel::resetEmergencyStop,
                                 onOpenSettings = { navigateTo(SETTINGS_ROUTE) },
                             ),
                         onDriveInputChanged = driveViewModel::updateDriveInput,
@@ -91,6 +92,7 @@ fun NavigationGraph() {
                             RobotControlFrameActions(
                                 onModeSelected = { mode -> navigateTo(mode.route) },
                                 onEmergencyStop = mainViewModel::triggerEmergencyStop,
+                                onEmergencyStopReset = mainViewModel::resetEmergencyStop,
                                 onOpenSettings = { navigateTo(SETTINGS_ROUTE) },
                             ),
                         onDriveInputChanged = driveViewModel::updateDriveInput,
@@ -120,6 +122,7 @@ fun NavigationGraph() {
                             RobotControlFrameActions(
                                 onModeSelected = { mode -> navigateTo(mode.route) },
                                 onEmergencyStop = mainViewModel::triggerEmergencyStop,
+                                onEmergencyStopReset = mainViewModel::resetEmergencyStop,
                                 onOpenSettings = { navigateTo(SETTINGS_ROUTE) },
                             ),
                         onDriveInputChanged = driveViewModel::updateDriveInput,
@@ -145,6 +148,7 @@ fun NavigationGraph() {
                             RobotControlFrameActions(
                                 onModeSelected = { mode -> navigateTo(mode.route) },
                                 onEmergencyStop = mainViewModel::triggerEmergencyStop,
+                                onEmergencyStopReset = mainViewModel::resetEmergencyStop,
                                 onOpenSettings = { navigateTo(SETTINGS_ROUTE) },
                             ),
                         onMissionPausedChanged = autoViewModel::setMissionPaused,

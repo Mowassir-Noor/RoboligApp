@@ -220,7 +220,6 @@ di/
     AppModule.kt
     RepositoryModule.kt
     CommunicationModule.kt
-    NetworkModule.kt
 
 domain/
 
@@ -249,7 +248,6 @@ communication/
 
     CommunicationManager.kt
     CommandQueue.kt
-    PacketScheduler.kt
     HeartbeatManager.kt
     ConnectionMonitor.kt
 
@@ -262,8 +260,6 @@ usb/
 video/
 
     VideoStreamManager.kt
-    MjpegDecoder.kt
-    VideoStatistics.kt
 
 protocol/
 
@@ -271,7 +267,6 @@ protocol/
     PacketBuilder.kt
     PacketParser.kt
     Checksum.kt
-    PacketEncoder.kt
     PacketDecoder.kt
 
 presentation/
@@ -303,15 +298,9 @@ presentation/
         ArmViewModel.kt
         AutoViewModel.kt
 
-service/
-
-    RobotControlService.kt
-    VideoService.kt
-
 utils/
 
     Time.kt
-    Math.kt
     Preferences.kt
 
 testing/
@@ -632,18 +621,6 @@ Services
 ViewModels
 
 No manual dependency creation.
-
----
-
-# Background Services
-
-RobotControlService
-
-Maintains communication even if UI changes.
-
-VideoService
-
-Maintains video decoding.
 
 ---
 

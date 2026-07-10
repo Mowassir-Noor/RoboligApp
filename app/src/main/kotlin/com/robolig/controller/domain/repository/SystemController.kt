@@ -14,4 +14,6 @@ interface SystemController {
     fun updateLogLevel(level: LogLevel)
 
     suspend fun emergencyStop()
+
+    suspend fun resetEmergencyStop()
 }

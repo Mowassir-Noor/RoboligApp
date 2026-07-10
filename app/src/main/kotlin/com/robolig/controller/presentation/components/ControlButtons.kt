@@ -102,17 +102,25 @@ fun RoboligMomentaryButton(
 @Composable
 fun EmergencyStopButton(
     onClick: () -> Unit,
+    onReset: () -> Unit,
+    armed: Boolean,
     modifier: Modifier = Modifier,
     compact: Boolean = false,
 ) {
     RoboligActionButton(
-        label = if (compact) "E-STOP" else "EMERGENCY",
+        label = when {
+            armed && compact -> "RESET"
+            armed -> "E-STOP ARMED"
+            compact -> "E-STOP"
+            else -> "EMERGENCY"
+        },
         modifier = modifier,
         accent = true,
-        onClick = onClick,
-        description = "Emergency stop",
+        onClick = if (armed) onReset else onClick,
+        description = if (armed) "Reset emergency stop" else "Emergency stop",
         emphasis = true,
         compact = compact,
+        filled = armed,
     )
 }
 
@@ -125,15 +133,18 @@ private fun RoboligActionButton(
     description: String = label,
     emphasis: Boolean = false,
     compact: Boolean = true,
+    filled: Boolean = false,
 ) {
     val backgroundColor =
         when {
+            accent && emphasis && filled -> MaterialTheme.colorScheme.error
             accent && emphasis -> MaterialTheme.colorScheme.primary
             accent -> MaterialTheme.colorScheme.primaryContainer
             else -> MaterialTheme.colorScheme.surfaceVariant
         }
     val contentColor =
         when {
+            accent && emphasis && filled -> MaterialTheme.colorScheme.onError
             accent && emphasis -> MaterialTheme.colorScheme.onPrimary
             accent -> MaterialTheme.colorScheme.onPrimaryContainer
             else -> MaterialTheme.colorScheme.onSurface

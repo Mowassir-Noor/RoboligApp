@@ -26,7 +26,6 @@ class RobotStateFactoryTest {
             CameraState(
                 streamUrl = "http://10.0.0.5:8080/stream",
                 status = CameraStreamStatus.CONFIGURED,
-                isMjpegCompatible = true,
             )
 
         val robotState =

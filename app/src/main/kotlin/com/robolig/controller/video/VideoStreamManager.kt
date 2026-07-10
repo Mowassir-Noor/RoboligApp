@@ -34,7 +34,6 @@ class VideoStreamManager
     @Inject
     constructor(
         private val controllerPreferences: ControllerPreferences,
-        private val mjpegDecoder: MjpegDecoder,
         private val logger: AppLogger,
         private val clock: MonotonicClock,
         @ApplicationScope private val applicationScope: CoroutineScope,
@@ -65,7 +64,6 @@ class VideoStreamManager
                     CameraState(
                         streamUrl = "",
                         status = CameraStreamStatus.IDLE,
-                        isMjpegCompatible = mjpegDecoder.supports("multipart/x-mixed-replace; boundary=frame"),
                     )
                 return
             }
@@ -74,7 +72,6 @@ class VideoStreamManager
                 currentState.copy(
                     streamUrl = normalizedUrl,
                     status = CameraStreamStatus.CONFIGURED,
-                    isStreaming = false,
                     lastError = null,
                 )
             }
@@ -97,7 +94,6 @@ class VideoStreamManager
                             cameraStateStore.update { currentState ->
                                 currentState.copy(
                                     status = CameraStreamStatus.ERROR,
-                                    isStreaming = false,
                                     lastError = ioException.message ?: "MJPEG stream disconnected",
                                     reconnectAttempts = currentState.reconnectAttempts + 1,
                                 )
@@ -115,27 +111,33 @@ class VideoStreamManager
             withContext(ioDispatcher) {
                 val frameTimestamps = ArrayDeque<Long>()
                 val connection =
-                    openConnection(streamUrl).also { httpConnection ->
+                    openConnection(streamUrl).also {
                         cameraStateStore.update { currentState ->
                             currentState.copy(
                                 status = CameraStreamStatus.CONNECTING,
                                 lastError = null,
-                                isMjpegCompatible = mjpegDecoder.supports(httpConnection.contentType),
                             )
                         }
                     }
 
                 connection.useInputStream { inputStream ->
+                    var scratchBuffer = ByteArray(VideoConstants.INITIAL_FRAME_BUFFER_BYTES)
                     while (isActive) {
                         val frameStartedAtMs = clock.elapsedRealtimeMs()
-                        val frameBytes = readNextFrame(inputStream) ?: throw IOException("MJPEG stream ended")
+                        val frameRead = readNextFrame(inputStream, scratchBuffer)
+                        scratchBuffer = frameRead.buffer
+                        if (frameRead.size == 0) {
+                            throw IOException("MJPEG stream ended")
+                        }
+                        val frameBytes = ByteArray(frameRead.size).also { destination ->
+                            System.arraycopy(scratchBuffer, 0, destination, 0, frameRead.size)
+                        }
                         val frameCompletedAtMs = clock.elapsedRealtimeMs()
                         val framesPerSecond = calculateFramesPerSecond(frameTimestamps, frameCompletedAtMs)
                         cameraStateStore.update { currentState ->
                             currentState.copy(
                                 streamUrl = streamUrl,
                                 status = CameraStreamStatus.STREAMING,
-                                isStreaming = true,
                                 latencyMs = (frameCompletedAtMs - frameStartedAtMs).toInt(),
                                 framesPerSecond = framesPerSecond,
                                 lastError = null,
@@ -177,40 +179,46 @@ private fun HttpURLConnection.useInputStream(block: (BufferedInputStream) -> Uni
     disconnect()
 }
 
-private fun readNextFrame(inputStream: BufferedInputStream): ByteArray? {
+private data class FrameRead(
+    val buffer: ByteArray,
+    val size: Int,
+)
+
+private fun readNextFrame(
+    inputStream: BufferedInputStream,
+    initialBuffer: ByteArray,
+): FrameRead {
     var previousByte = -1
     var frameStarted = false
-    val buffer = ArrayList<Byte>(32_768)
+    var frameSize = 0
+    var buffer = initialBuffer
 
     while (true) {
         val currentByte = inputStream.read()
         if (currentByte == -1) {
-            return null
+            return FrameRead(buffer = buffer, size = 0)
+        }
+
+        if (frameStarted && frameSize >= buffer.size) {
+            buffer = buffer.copyOf(buffer.size * 2)
         }
 
         if (!frameStarted) {
             if (previousByte == JPEG_MARKER_PREFIX && currentByte == JPEG_START_MARKER) {
                 frameStarted = true
-                buffer.add(JPEG_MARKER_PREFIX.toByte())
-                buffer.add(JPEG_START_MARKER.toByte())
+                buffer[frameSize++] = JPEG_MARKER_PREFIX.toByte()
+                buffer[frameSize++] = JPEG_START_MARKER.toByte()
             }
         } else {
-            buffer.add(currentByte.toByte())
+            buffer[frameSize++] = currentByte.toByte()
             if (previousByte == JPEG_MARKER_PREFIX && currentByte == JPEG_END_MARKER) {
-                return buffer.toByteArray()
+                return FrameRead(buffer = buffer, size = frameSize)
             }
         }
 
         previousByte = currentByte
     }
 }
-
-private fun ArrayList<Byte>.toByteArray(): ByteArray =
-    ByteArray(size).also { byteArray ->
-        forEachIndexed { index, value ->
-            byteArray[index] = value
-        }
-    }
 
 private const val JPEG_MARKER_PREFIX = 0xFF
 private const val JPEG_START_MARKER = 0xD8

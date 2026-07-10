@@ -3,21 +3,23 @@ package com.robolig.controller.communication
 import com.robolig.controller.core.AppLogger
 import com.robolig.controller.core.ApplicationScope
 import com.robolig.controller.core.LogTag
-import com.robolig.controller.protocol.PacketEncoder
+import com.robolig.controller.protocol.PacketBuilder
 import com.robolig.controller.usb.UsbSerialManager
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
+
+private const val POLL_FALLBACK_MS = 64L
 
 @Singleton
 class PacketTransmitter
     @Inject
     constructor(
         private val commandQueue: CommandQueue,
-        private val packetEncoder: PacketEncoder,
+        private val packetBuilder: PacketBuilder,
         private val usbSerialManager: UsbSerialManager,
         private val logger: AppLogger,
         @ApplicationScope private val applicationScope: CoroutineScope,
@@ -31,19 +33,23 @@ class PacketTransmitter
             started = true
             applicationScope.launch {
                 while (applicationScope.isActive) {
-                    val queuedPacket = commandQueue.poll()
-                    if (queuedPacket == null) {
-                        delay(4L)
-                        continue
+                    withTimeoutOrNull(POLL_FALLBACK_MS) {
+                        commandQueue.packetAvailableSignal().receive()
                     }
+                    drainAndSend()
+                }
+            }
+        }
 
-                    val sent = usbSerialManager.send(packetEncoder.encode(queuedPacket.packet))
-                    if (!sent) {
-                        logger.w(
-                            LogTag.USB,
-                            "Dropping ${queuedPacket.packet.type} because the USB writer is unavailable",
-                        )
-                    }
+        private suspend fun drainAndSend() {
+            while (true) {
+                val queuedPacket = commandQueue.poll() ?: return
+                val sent = usbSerialManager.send(packetBuilder.build(queuedPacket.packet))
+                if (!sent) {
+                    logger.w(
+                        LogTag.USB,
+                        "Dropping ${queuedPacket.packet.type} because the USB writer is unavailable",
+                    )
                 }
             }
         }

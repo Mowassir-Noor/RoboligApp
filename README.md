@@ -1065,7 +1065,6 @@ Hilt wiring lives in:
 - [AppModule.kt](app/src/main/kotlin/com/robolig/controller/di/AppModule.kt)
 - [RepositoryModule.kt](app/src/main/kotlin/com/robolig/controller/di/RepositoryModule.kt)
 - [CommunicationModule.kt](app/src/main/kotlin/com/robolig/controller/di/CommunicationModule.kt)
-- [NetworkModule.kt](app/src/main/kotlin/com/robolig/controller/di/NetworkModule.kt)
 
 What it provides:
 
@@ -1081,24 +1080,6 @@ What it provides:
 - packet builder/parser/encoder/decoder
 - MJPEG decoder binding
 
-## Non-routed utility screen
-
-There is one extra screen in the codebase that is not currently connected to navigation:
-
-- [ArchitectureStatusScreen.kt](app/src/main/kotlin/com/robolig/controller/presentation/screens/ArchitectureStatusScreen.kt)
-
-What it does:
-
-- shows architecture status cards
-- shows warnings and errors
-- shows video state
-- shows control graph state
-
-Why it matters:
-
-- it is useful as an internal diagnostic or demo screen
-- it is not part of the current operator flow, so it has no runtime screenshot in this document
-
 ## Screenshot asset list
 
 - [docs/screenshots/drive.png](docs/screenshots/drive.png)
@@ -1106,4 +1087,22 @@ Why it matters:
 - [docs/screenshots/zipline.png](docs/screenshots/zipline.png)
 - [docs/screenshots/auto.png](docs/screenshots/auto.png)
 - [docs/screenshots/settings.png](docs/screenshots/settings.png)
+- [docs/screenshots/estop-armed.png](docs/screenshots/estop-armed.png)
+
+## Reference design divergence
+
+`docs/UI/robot app DesignV2_1.png` depicts four operator panels (Driving, Gripper, Zipline, Auto) shown side-by-side with simultaneous live telemetry and joysticks for every mode. The shipped app uses a single-mode router driven by a top-bar mode selector instead. The reasons:
+
+- A competing operator cannot coordinate simultaneous translation and arm Cartesian control without an explicit current focus; the design's "operate everything at once" mental model invites left/right hand divergence without a clear arbitration rule.
+- Bottom-rail joysticks compete for thumb real estate once a camera panel expands to fill a single mode.
+- Switching modes via a tap is faster than relocating attention between distant panels.
+
+Implementation preserves every functional capability the design describes:
+
+- All four mode pages exist with the rail actions and joystick axes the design calls out (translation, steering, arm XY, depth/wrist, height slider).
+- The telemetry bar at the top carries every metric the design lists (battery, connection, signal, speed, task, FPS, latency).
+- E-STOP, settings, and warnings remain globally accessible from every mode.
+- The shared `RobotControlScaffold` is reused across all four screens so a future multi-panel layout can swap in by composing four scaffolds in a grid without rewriting per-screen logic.
+
+If a competition setting requires the literal four-panel layout, the migration path is to remove `NavigationGraph`'s mode routes and render four `RobotControlScaffold`s in a 2×2 grid, sharing one `RobotState`, with conflict-resolution rules added to `CommunicationControllers`.
 - [docs/screenshots/about.png](docs/screenshots/about.png)

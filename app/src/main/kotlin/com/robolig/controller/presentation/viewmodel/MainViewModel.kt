@@ -41,4 +41,10 @@ class MainViewModel
                 robotRepository.systemController.emergencyStop()
             }
         }
+
+        fun resetEmergencyStop() {
+            viewModelScope.launch {
+                robotRepository.systemController.resetEmergencyStop()
+            }
+        }
     }

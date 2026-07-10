@@ -201,19 +201,6 @@ data class ArmControlPayload(
     }
 }
 
-data class PtzControlPayload(
-    val pan: Int,
-    val tilt: Int,
-    val zoom: Int,
-) {
-    fun toPayloadBytes(): ByteArray =
-        ByteArray(ProtocolConstants.PAYLOAD_SIZE_BYTES).apply {
-            this[0] = pan.toByte()
-            this[1] = tilt.toByte()
-            this[2] = zoom.toByte()
-        }
-}
-
 data class TelemetryResponsePayload(
     val batteryPercent: Int,
     val signalPercent: Int,

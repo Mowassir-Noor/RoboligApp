@@ -109,6 +109,10 @@ class SystemControllerImpl
         override suspend fun emergencyStop() {
             communicationSystemController.emergencyStop()
         }
+
+        override suspend fun resetEmergencyStop() {
+            communicationSystemController.resetEmergencyStop()
+        }
     }
 
 @Singleton

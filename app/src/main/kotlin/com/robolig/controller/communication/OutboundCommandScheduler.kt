@@ -1,6 +1,7 @@
 package com.robolig.controller.communication
 
 import com.robolig.controller.core.ApplicationScope
+import com.robolig.controller.core.ControlLoopConstants
 import com.robolig.controller.domain.model.RobotMode
 import com.robolig.controller.protocol.PacketPriority
 import com.robolig.controller.protocol.RobotPacketFactory
@@ -20,7 +21,6 @@ class OutboundCommandScheduler
         private val stateStore: CommunicationStateStore,
         private val packetFactory: RobotPacketFactory,
         private val commandQueue: CommandQueue,
-        private val packetScheduler: PacketScheduler,
         private val armKinematicsSolver: ArmKinematicsSolver,
         private val heartbeatManager: HeartbeatManager,
         private val usbSerialManager: UsbSerialManager,
@@ -41,7 +41,7 @@ class OutboundCommandScheduler
 
         private suspend fun vehicleLoop() {
             while (applicationScope.isActive) {
-                delay(packetScheduler.schedule.vehicleControlPeriodMs)
+                delay(ControlLoopConstants.VEHICLE_CONTROL_PERIOD_MS)
                 val state = stateStore.state.value
                 if (!shouldSendVehicle(state) || !usbSerialManager.connection.value.isSerialOpen) {
                     continue
@@ -57,7 +57,7 @@ class OutboundCommandScheduler
 
         private suspend fun armLoop() {
             while (applicationScope.isActive) {
-                delay(packetScheduler.schedule.armControlPeriodMs)
+                delay(ControlLoopConstants.ARM_CONTROL_PERIOD_MS)
                 val state = stateStore.state.value
                 if (!shouldSendArm(state) || !usbSerialManager.connection.value.isSerialOpen) {
                     continue
@@ -90,7 +90,7 @@ class OutboundCommandScheduler
 
         private suspend fun telemetryLoop() {
             while (applicationScope.isActive) {
-                delay(packetScheduler.schedule.telemetryPeriodMs)
+                delay(ControlLoopConstants.TELEMETRY_PERIOD_MS)
                 if (!usbSerialManager.connection.value.isSerialOpen) {
                     continue
                 }
@@ -106,7 +106,7 @@ class OutboundCommandScheduler
 
         private suspend fun heartbeatLoop() {
             while (applicationScope.isActive) {
-                delay(packetScheduler.schedule.heartbeatIntervalMs)
+                delay(ControlLoopConstants.HEARTBEAT_INTERVAL_MS)
                 if (!usbSerialManager.connection.value.isSerialOpen) {
                     heartbeatManager.reset()
                     continue
