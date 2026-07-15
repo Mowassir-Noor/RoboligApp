@@ -15,6 +15,7 @@ class RobotStateFactory
             cameraState: CameraState,
             showPacketsOverlay: Boolean = false,
             useDeviceCamera: Boolean = false,
+            cubeDetectionEnabled: Boolean = false,
         ): RobotState {
             val warnings =
                 buildList {
@@ -45,6 +46,7 @@ class RobotStateFactory
                 errors = errors,
                 showPacketsOverlay = showPacketsOverlay,
                 useDeviceCamera = useDeviceCamera,
+                cubeDetectionEnabled = cubeDetectionEnabled,
             )
         }
     }

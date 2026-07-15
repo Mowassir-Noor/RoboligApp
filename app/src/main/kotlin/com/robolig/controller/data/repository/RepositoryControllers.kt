@@ -114,6 +114,10 @@ class SystemControllerImpl
             communicationSystemController.updateUseDeviceCamera(enabled)
         }
 
+        override fun updateCubeDetectionEnabled(enabled: Boolean) {
+            communicationSystemController.updateCubeDetectionEnabled(enabled)
+        }
+
         override suspend fun emergencyStop() {
             communicationSystemController.emergencyStop()
         }

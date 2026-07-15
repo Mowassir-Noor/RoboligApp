@@ -18,4 +18,5 @@ data class CameraState(
     val frameSequence: Long = 0L,
     val lastFrameAtMs: Long? = null,
     val reconnectAttempts: Int = 0,
+    val cubeDetections: List<CubeDetection> = emptyList(),
 )

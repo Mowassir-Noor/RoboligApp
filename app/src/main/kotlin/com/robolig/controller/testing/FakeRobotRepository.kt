@@ -175,6 +175,12 @@ class FakeRobotRepository(
                 }
             }
 
+            override fun updateCubeDetectionEnabled(enabled: Boolean) {
+                robotStateFlow.update { currentState ->
+                    currentState.copy(cubeDetectionEnabled = enabled)
+                }
+            }
+
             override suspend fun emergencyStop() {
                 robotStateFlow.update { currentState ->
                     currentState.copy(

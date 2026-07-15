@@ -4,6 +4,7 @@ package com.robolig.controller.presentation.components
 
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -21,13 +22,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.robolig.controller.domain.model.CameraState
 import com.robolig.controller.domain.model.CameraStreamStatus
+import com.robolig.controller.domain.model.CubeDetection
 
 @Composable
 fun CameraView(
@@ -60,6 +65,13 @@ fun CameraView(
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
                 )
+                if (cameraState.cubeDetections.isNotEmpty()) {
+                    CubeDetectionOverlay(
+                        detections = cameraState.cubeDetections,
+                        imageWidth = frameBitmap.width,
+                        imageHeight = frameBitmap.height,
+                    )
+                }
             } else {
                 CameraPlaceholder(cameraState = cameraState)
             }
@@ -126,8 +138,57 @@ private fun CameraOverlay(cameraState: CameraState) {
         CameraBadge(label = cameraState.status.displayName)
         CameraBadge(label = "${cameraState.framesPerSecond} FPS")
         CameraBadge(label = "${cameraState.latencyMs ?: 0} ms")
+        val detections = cameraState.cubeDetections
+        if (detections.isNotEmpty()) {
+            CameraBadge(label = "${detections.size} cube${if (detections.size == 1) "" else "s"}")
+        }
         if (cameraState.reconnectAttempts > 0) {
             CameraBadge(label = "Retry ${cameraState.reconnectAttempts}")
+        }
+    }
+}
+
+@Composable
+private fun CubeDetectionOverlay(
+    detections: List<CubeDetection>,
+    imageWidth: Int,
+    imageHeight: Int,
+) {
+    if (imageWidth <= 0 || imageHeight <= 0) return
+    val boxColor = MaterialTheme.colorScheme.tertiary
+    val crosshairColor = MaterialTheme.colorScheme.tertiary
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        detections.forEach { detection ->
+            val left = (detection.x.toFloat() / imageWidth) * size.width
+            val top = (detection.y.toFloat() / imageHeight) * size.height
+            val right = (detection.right.toFloat() / imageWidth) * size.width
+            val bottom = (detection.bottom.toFloat() / imageHeight) * size.height
+            drawRect(
+                color = boxColor,
+                topLeft = androidx.compose.ui.geometry.Offset(left, top),
+                size = androidx.compose.ui.geometry.Size(right - left, bottom - top),
+                style = Stroke(width = 4f, pathEffect = PathEffect.cornerPathEffect(8f)),
+            )
+            val cx = (detection.centroidX / imageWidth) * size.width
+            val cy = (detection.centroidY / imageHeight) * size.height
+            val arm = 14f
+            drawLine(
+                color = crosshairColor,
+                start = androidx.compose.ui.geometry.Offset(cx - arm, cy),
+                end = androidx.compose.ui.geometry.Offset(cx + arm, cy),
+                strokeWidth = 3f,
+            )
+            drawLine(
+                color = crosshairColor,
+                start = androidx.compose.ui.geometry.Offset(cx, cy - arm),
+                end = androidx.compose.ui.geometry.Offset(cx, cy + arm),
+                strokeWidth = 3f,
+            )
+            drawCircle(
+                color = crosshairColor.copy(alpha = 0.35f),
+                center = androidx.compose.ui.geometry.Offset(cx, cy),
+                radius = 5f,
+            )
         }
     }
 }

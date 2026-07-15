@@ -20,6 +20,7 @@ The official UI reference image is `docs/UI/robot app DesignV2_1.png`.
 - Architecture: MVVM + Hilt + Flow/StateFlow
 - Robot control transport: USB serial at `115200` baud through Deneyap Mini v2
 - Video transport: independent WiFi MJPEG stream, or the tablet's own back camera (CameraX)
+- On-device computer vision: OpenCV 4.10 shape-based cube detection (9 × 9 × 9 cm target, color-agnostic)
 - Packet size: fixed `32` bytes
 - Safety: heartbeat, watchdog, auto-stop, emergency stop, packet validation, checksum validation, sequence validation
 
@@ -38,6 +39,7 @@ Key packages:
 - `app/src/main/kotlin/com/robolig/controller/protocol`: packet model, checksum, encoder, parser, decoder, packet factory
 - `app/src/main/kotlin/com/robolig/controller/usb`: USB permission and serial managers
 - `app/src/main/kotlin/com/robolig/controller/video`: MJPEG stream manager, device camera manager (CameraX) and decoder
+- `app/src/main/kotlin/com/robolig/controller/vision`: cube detector (OpenCV)
 - `app/src/main/kotlin/com/robolig/controller/robot`: state factory and arm kinematics
 
 ## Control Modes
@@ -115,7 +117,7 @@ Current local verification completed successfully for:
 - `testDebugUnitTest`
 - `assembleDebug`
 
-The debug APK installs and runs on the connected Huawei tablet; manual end-to-end smoke tests (joystick input → packet capture in the diagnostic overlay, mode switching, E-STOP latch, device-camera live preview) are passing as of July 15, 2026.
+The debug APK installs and runs on the connected Huawei tablet; manual end-to-end smoke tests (joystick input → packet capture in the diagnostic overlay, mode switching, E-STOP latch, device-camera live preview, OpenCV cube detector running on the active feed) are passing as of July 15, 2026.
 
 
 
@@ -498,6 +500,8 @@ On-screen components:
   - `Use Device Camera` toggle — when enabled, every manual control screen shows frames from this tablet's back camera instead of the MJPEG stream. Asks for the `CAMERA` runtime permission the first time it is enabled.
 - `Display` card:
   - `Show Packets` toggle — when enabled, every manual control screen shows a centered overlay with the most recent outbound packet (see *Packet diagnostics overlay* below)
+- `Cube Detection` card:
+  - `Detect Cubes` toggle — when enabled, every manual control screen runs the cube detector on the active camera feed and draws boxes around detected 9 × 9 × 9 cm cubes. See *Cube detection* below.
 - `Logging Level` card:
   - one button per `LogLevel`
 - `Controller Diagnostics` card:
@@ -515,6 +519,7 @@ Behavior:
 - `Refresh` asks the system controller to refresh USB connection state.
 - `Back` returns to drive.
 - `Use Device Camera` binds CameraX to the back camera and routes its frames into `CameraState`. The MJPEG stream keeps running in the background but its frames are ignored while the toggle is on. See *Device camera* below.
+- `Detect Cubes` calls `SettingsViewModel.toggleCubeDetection(...)`, which reaches `SystemController.updateCubeDetectionEnabled(...)` and finally `ControllerPreferences.updateCubeDetectionEnabled(...)`. The value is persisted in `SharedPreferences` under the `cube_detection_enabled` key. The detector subscribes to the active camera feed, so toggling this on while the camera is already live is instant.
 - `Show Packets` toggles the diagnostic overlay on every control screen.
 
 How it works under the hood:
@@ -630,8 +635,11 @@ The entire UI is driven from [RobotState.kt](app/src/main/kotlin/com/robolig/con
 - `errors`
 - `showPacketsOverlay` — whether the diagnostic packet overlay is currently enabled
 - `useDeviceCamera` — whether the operator panel should render frames from this tablet's back camera instead of the MJPEG stream
+- `cubeDetectionEnabled` — whether the on-device OpenCV cube detector is currently running
 
 `DiagnosticsState` now also carries `lastOutboundBytes: ByteArray?` and `lastOutboundSecondaryBytes: ByteArray?` — the most recent packet bytes captured by `PacketTransmitter`, filtered by current mode and skipping `HEARTBEAT`. The packet overlay reads these fields; everything else in the app ignores them.
+
+`CameraState` also carries `cubeDetections: List<CubeDetection>` — the most recent results from `CubeDetector`. Coordinates are in the source image pixel space; the camera overlay scales them to the display panel.
 
 Important sub-models:
 
@@ -701,6 +709,7 @@ The ViewModels are intentionally thin.
   - log level
   - show-packets toggle
   - use-device-camera toggle
+  - cube-detection toggle
   - refresh status
 
 The important design point is that no ViewModel talks directly to USB, packet code, or MJPEG internals.
@@ -1086,6 +1095,39 @@ How it works:
 - The MJPEG stream keeps running in the background while the device camera is on. Its frames are simply not selected by `mergeCameraState`. Flipping the toggle back off returns the panel to the MJPEG feed without any reconnection delay.
 
 Why the monotonic counter instead of `mjpegState.frameSequence + 1`: when MJPEG is idle, `mjpegState.frameSequence` is stuck at `0`, so `0 + 1 = 1` for every device frame. `CameraView` keys its `remember` block on `frameSequence`; a stable key returns the cached first-frame bitmap, so the panel appeared stuck on one image even though the StateFlow was firing. The local counter guarantees a unique key per device frame, which is the same pattern `VideoStreamManager` already uses for MJPEG.
+
+## Cube detection
+
+The `Detect Cubes` toggle in **Settings → Cube Detection** runs an on-device OpenCV detector over every active camera frame. Target is the 9 × 9 × 9 cm Robolig cube; the operator does not need to know the cube's color — the detector is shape-based and color-agnostic.
+
+Implementation:
+
+- [CubeDetector.kt](app/src/main/kotlin/com/robolig/controller/vision/CubeDetector.kt)
+- [CubeDetection.kt](app/src/main/kotlin/com/robolig/controller/domain/model/CubeDetection.kt)
+
+How it works:
+
+- `OpenCVLoader.initLocal()` runs in `RobotApplication.onCreate()`. OpenCV 4.10.0 native libraries load at app start; failure is logged and the detector simply returns empty lists.
+- `CubeDetector` is a Hilt singleton. Its `init {}` block starts a coroutine on `@DefaultDispatcher` that combines `cubeDetectionEnabled`, `useDeviceCamera`, the MJPEG `cameraState`, and the device camera `frameBytes`, picks the active frame, and runs the detection pipeline.
+- Per frame, the JPEG is decoded to a `Bitmap`, scaled to a max 320 × 320 (preserving aspect ratio) so detection cost is independent of the source size, then converted to a grayscale `Mat`. `Imgproc.GaussianBlur` smooths noise, `Imgproc.Canny(50, 150)` finds edges, and `Imgproc.findContours(RETR_EXTERNAL)` returns external contours only.
+- Each contour is filtered:
+  - `Imgproc.contourArea` in `[800, 200_000]` px² — bounds derived from the 9 cm spec at typical operating distances. Tighten these if your camera FOV or operating distance is different.
+  - `Imgproc.approxPolyDP(epsilon = 0.02 * perimeter)` must produce exactly 4 vertices.
+  - Bounding-rect aspect ratio `width / height` in `[0.7, 1.4]` — near-square.
+  - Fill ratio `contourArea / boundingRectArea > 0.65` — solid face, not a frame.
+- Survivors are mapped back to original frame pixel coordinates and exposed via `MutableStateFlow<List<CubeDetection>>`.
+- `RobotRepositoryImpl`'s 6-way `combine` adds `cubeDetector.detections` to the merge; `mergeCameraState` copies them into `CameraState.cubeDetections` for both MJPEG and device-camera paths.
+- `CameraView` reads `cameraState.cubeDetections` and draws each one on a `Canvas` overlay as a mint-colored rounded rectangle (using `PathEffect.cornerPathEffect`), a crosshair on the centroid, and a small center dot. The existing status column gains a `N cube(s)` badge when at least one detection is present.
+- `collectLatest` in the combine block drops intermediate frames if detection is still running when a new frame arrives, so the operator always sees the freshest result without backpressure.
+
+Why shape-only and not color: the operator confirmed the cube color is unknown. The cube is always 9 × 9 × 9 cm, so a near-square silhouette is a reliable signature. A color filter can be layered on top later if the operator ever figures out the color — adding it would only require a new HSV pass and a single additional filter in `CubeDetector.detect`.
+
+Tuning knobs in `CubeDetector.kt`:
+- `MAX_DETECTION_DIM` — input resize ceiling (default 320).
+- `MIN_CONTOUR_AREA_PX` / `MAX_CONTOUR_AREA_PX` — area filter from the 9 cm spec.
+- `MIN_ASPECT` / `MAX_ASPECT` — square tolerance.
+- `MIN_FILL_RATIO` — solid-face threshold.
+- `MAX_DETECTIONS_PER_FRAME` — hard cap so a noisy frame can't OOM the renderer.
 
 ## RobotStateFactory
 

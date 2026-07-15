@@ -17,6 +17,8 @@ interface SystemController {
 
     fun updateUseDeviceCamera(enabled: Boolean)
 
+    fun updateCubeDetectionEnabled(enabled: Boolean)
+
     suspend fun emergencyStop()
 
     suspend fun resetEmergencyStop()

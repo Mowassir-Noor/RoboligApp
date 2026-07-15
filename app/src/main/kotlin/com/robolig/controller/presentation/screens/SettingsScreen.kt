@@ -49,6 +49,7 @@ fun SettingsScreen(
     onLogLevelChanged: (LogLevel) -> Unit,
     onShowPacketsOverlayChanged: (Boolean) -> Unit,
     onUseDeviceCameraChanged: (Boolean) -> Unit,
+    onCubeDetectionChanged: (Boolean) -> Unit,
     onRefreshStatus: () -> Unit,
 ) {
     val spacing = RoboligTheme.spacing
@@ -131,6 +132,31 @@ fun SettingsScreen(
                         label = "Use Device Camera",
                         checked = robotState.useDeviceCamera,
                         onToggle = onUseDeviceCameraChanged,
+                    )
+                }
+            }
+
+            SettingsCard(
+                title = "Cube Detection",
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    text =
+                        "Shape-only detector runs on the active camera feed. Targets near-square " +
+                            "quadrilaterals within the 9 × 9 cm cube size range at typical " +
+                            "operating distances. Color is not used — the detector works on " +
+                            "unknown colors.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(spacing.panel),
+                    verticalArrangement = Arrangement.spacedBy(spacing.panel),
+                ) {
+                    RoboligToggleButton(
+                        label = "Detect Cubes",
+                        checked = robotState.cubeDetectionEnabled,
+                        onToggle = onCubeDetectionChanged,
                     )
                 }
             }

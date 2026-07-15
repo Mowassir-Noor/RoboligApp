@@ -34,6 +34,10 @@ class SettingsViewModel
             robotRepository.systemController.updateUseDeviceCamera(enabled)
         }
 
+        fun toggleCubeDetection(enabled: Boolean) {
+            robotRepository.systemController.updateCubeDetectionEnabled(enabled)
+        }
+
         fun refreshStatus() {
             viewModelScope.launch {
                 robotRepository.systemController.refreshStatus()

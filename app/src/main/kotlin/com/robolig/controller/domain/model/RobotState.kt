@@ -16,4 +16,5 @@ data class RobotState(
     val errors: List<String> = emptyList(),
     val showPacketsOverlay: Boolean = false,
     val useDeviceCamera: Boolean = false,
+    val cubeDetectionEnabled: Boolean = false,
 )

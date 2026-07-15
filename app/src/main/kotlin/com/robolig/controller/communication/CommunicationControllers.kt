@@ -219,6 +219,10 @@ class CommunicationSystemController
             controllerPreferences.updateUseDeviceCamera(enabled)
         }
 
+        fun updateCubeDetectionEnabled(enabled: Boolean) {
+            controllerPreferences.updateCubeDetectionEnabled(enabled)
+        }
+
         suspend fun emergencyStop() {
             commandQueue.clear()
             stateStore.update { currentState ->

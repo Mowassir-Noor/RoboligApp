@@ -79,4 +79,5 @@ object PreferenceConstants {
     const val LOG_LEVEL = "log_level"
     const val SHOW_PACKETS_OVERLAY = "show_packets_overlay"
     const val USE_DEVICE_CAMERA = "use_device_camera"
+    const val CUBE_DETECTION_ENABLED = "cube_detection_enabled"
 }

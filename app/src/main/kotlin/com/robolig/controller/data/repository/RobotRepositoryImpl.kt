@@ -5,6 +5,7 @@ import com.robolig.controller.communication.CommunicationState
 import com.robolig.controller.core.ApplicationScope
 import com.robolig.controller.domain.model.CameraState
 import com.robolig.controller.domain.model.CameraStreamStatus
+import com.robolig.controller.domain.model.CubeDetection
 import com.robolig.controller.domain.model.RobotState
 import com.robolig.controller.domain.repository.ArmController
 import com.robolig.controller.domain.repository.DriveController
@@ -16,6 +17,7 @@ import com.robolig.controller.robot.RobotStateFactory
 import com.robolig.controller.utils.ControllerPreferences
 import com.robolig.controller.video.DeviceCameraManager
 import com.robolig.controller.video.VideoStreamManager
+import com.robolig.controller.vision.CubeDetector
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -31,6 +33,7 @@ class RobotRepositoryImpl
         communicationManager: CommunicationManager,
         videoStreamManager: VideoStreamManager,
         deviceCameraManager: DeviceCameraManager,
+        cubeDetector: CubeDetector,
         robotStateFactory: RobotStateFactory,
         controllerPreferences: ControllerPreferences,
         override val driveController: DriveController,
@@ -45,6 +48,7 @@ class RobotRepositoryImpl
                 communicationManager.state,
                 videoStreamManager.cameraState,
                 deviceCameraManager.frameBytes,
+                cubeDetector.detections,
                 controllerPreferences.showPacketsOverlay,
                 controllerPreferences.useDeviceCamera,
             ) { values: Array<Any?> ->
@@ -55,18 +59,23 @@ class RobotRepositoryImpl
                 @Suppress("UNCHECKED_CAST")
                 val deviceFrame = values[2] as ByteArray?
                 @Suppress("UNCHECKED_CAST")
-                val showPacketsOverlay = values[3] as Boolean
+                val cubeDetections = values[3] as List<CubeDetection>
                 @Suppress("UNCHECKED_CAST")
-                val useDeviceCamera = values[4] as Boolean
+                val showPacketsOverlay = values[4] as Boolean
+                @Suppress("UNCHECKED_CAST")
+                val useDeviceCamera = values[5] as Boolean
+                val mergedCamera = mergeCameraState(
+                    mjpegState = mjpegState,
+                    deviceFrame = deviceFrame,
+                    cubeDetections = cubeDetections,
+                    useDeviceCamera = useDeviceCamera,
+                )
                 robotStateFactory.create(
                     communicationState = communicationState,
-                    cameraState = mergeCameraState(
-                        mjpegState = mjpegState,
-                        deviceFrame = deviceFrame,
-                        useDeviceCamera = useDeviceCamera,
-                    ),
+                    cameraState = mergedCamera,
                     showPacketsOverlay = showPacketsOverlay,
                     useDeviceCamera = useDeviceCamera,
+                    cubeDetectionEnabled = controllerPreferences.cubeDetectionEnabled.value,
                 )
             }.stateIn(
                 scope = applicationScope,
@@ -84,19 +93,21 @@ private var deviceFrameSequence: Long = 0L
 private fun mergeCameraState(
     mjpegState: CameraState,
     deviceFrame: ByteArray?,
+    cubeDetections: List<CubeDetection>,
     useDeviceCamera: Boolean,
 ): CameraState {
+    val withDetections = mjpegState.copy(cubeDetections = cubeDetections)
     if (!useDeviceCamera) {
-        return mjpegState
+        return withDetections
     }
     if (deviceFrame == null) {
-        return mjpegState.copy(
+        return withDetections.copy(
             status = if (mjpegState.frameBytes != null) mjpegState.status else CameraStreamStatus.IDLE,
             lastError = null,
         )
     }
     deviceFrameSequence++
-    return mjpegState.copy(
+    return withDetections.copy(
         frameBytes = deviceFrame,
         frameSequence = deviceFrameSequence,
         lastFrameAtMs = System.currentTimeMillis(),

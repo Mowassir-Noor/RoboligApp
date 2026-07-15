@@ -167,6 +167,7 @@ fun NavigationGraph() {
                 onLogLevelChanged = settingsViewModel::updateLogLevel,
                 onShowPacketsOverlayChanged = settingsViewModel::toggleShowPacketsOverlay,
                 onUseDeviceCameraChanged = settingsViewModel::toggleUseDeviceCamera,
+                onCubeDetectionChanged = settingsViewModel::toggleCubeDetection,
                 onRefreshStatus = settingsViewModel::refreshStatus,
             )
         }
