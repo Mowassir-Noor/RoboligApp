@@ -12,10 +12,13 @@ import javax.inject.Singleton
 interface ControllerPreferences {
     val videoStreamUrl: StateFlow<String>
     val logLevel: StateFlow<LogLevel>
+    val showPacketsOverlay: StateFlow<Boolean>
 
     fun updateVideoStreamUrl(url: String)
 
     fun updateLogLevel(level: LogLevel)
+
+    fun updateShowPacketsOverlay(enabled: Boolean)
 }
 
 @Singleton
@@ -34,9 +37,14 @@ class ControllerPreferencesImpl
                     sharedPreferences.getString(PreferenceConstants.LOG_LEVEL, LogLevel.DEBUG.name),
                 ),
             )
+        private val showPacketsOverlayState =
+            MutableStateFlow(
+                sharedPreferences.getBoolean(PreferenceConstants.SHOW_PACKETS_OVERLAY, false),
+            )
 
         override val videoStreamUrl: StateFlow<String> = videoStreamUrlState.asStateFlow()
         override val logLevel: StateFlow<LogLevel> = logLevelState.asStateFlow()
+        override val showPacketsOverlay: StateFlow<Boolean> = showPacketsOverlayState.asStateFlow()
 
         override fun updateVideoStreamUrl(url: String) {
             val normalizedUrl = url.trim()
@@ -63,5 +71,18 @@ class ControllerPreferencesImpl
                 .apply()
 
             logLevelState.value = level
+        }
+
+        override fun updateShowPacketsOverlay(enabled: Boolean) {
+            if (showPacketsOverlayState.value == enabled) {
+                return
+            }
+
+            sharedPreferences
+                .edit()
+                .putBoolean(PreferenceConstants.SHOW_PACKETS_OVERLAY, enabled)
+                .apply()
+
+            showPacketsOverlayState.value = enabled
         }
     }

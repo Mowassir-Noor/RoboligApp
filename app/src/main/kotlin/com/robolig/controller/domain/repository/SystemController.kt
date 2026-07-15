@@ -13,6 +13,8 @@ interface SystemController {
 
     fun updateLogLevel(level: LogLevel)
 
+    fun updateShowPacketsOverlay(enabled: Boolean)
+
     suspend fun emergencyStop()
 
     suspend fun resetEmergencyStop()

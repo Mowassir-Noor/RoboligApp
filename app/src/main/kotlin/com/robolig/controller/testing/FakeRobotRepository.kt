@@ -163,6 +163,12 @@ class FakeRobotRepository(
                 }
             }
 
+            override fun updateShowPacketsOverlay(enabled: Boolean) {
+                robotStateFlow.update { currentState ->
+                    currentState.copy(showPacketsOverlay = enabled)
+                }
+            }
+
             override suspend fun emergencyStop() {
                 robotStateFlow.update { currentState ->
                     currentState.copy(

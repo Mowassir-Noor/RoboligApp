@@ -33,44 +33,48 @@ class CommunicationManager
         watchdogMonitor: WatchdogMonitor,
         @ApplicationScope applicationScope: CoroutineScope,
     ) {
-        init {
-            outboundCommandScheduler.start()
-            packetTransmitter.start()
-            inboundPacketProcessor.start()
-            watchdogMonitor.start()
-        }
-
-        val state: StateFlow<CommunicationState> =
-            combine(
-                stateStore.state,
-                connectionMonitor.connectionState,
-                heartbeatManager.status,
-                commandQueue.queueDepth,
-                usbSerialManager.connection,
-            ) { baseState, connectionState, heartbeatStatus, queueDepth, usbConnection ->
-                baseState.copy(
-                    connectionState = connectionState,
-                    safety = mergeSafetyState(baseState.safety, heartbeatStatus.isHealthy),
-                    diagnostics =
-                        mergeDiagnostics(
-                            diagnosticsState = baseState.diagnostics,
-                            queueDepth = queueDepth,
-                            usbConnection = usbConnection,
-                            logLevel = baseState.diagnostics.logLevel,
-                        ),
-                    warnings = buildWarnings(baseState, connectionState, heartbeatStatus.isHealthy, usbConnection),
-                    errors = buildErrors(baseState.errors, usbConnection, connectionState, heartbeatStatus.isHealthy),
-                )
-            }.combine(controllerPreferences.logLevel) { baseState, logLevel ->
-                baseState.copy(
-                    diagnostics = baseState.diagnostics.copy(logLevel = logLevel),
-                )
-            }.stateIn(
-                scope = applicationScope,
-                started = SharingStarted.Eagerly,
-                initialValue = CommunicationState(),
-            )
+    init {
+        outboundCommandScheduler.start()
+        packetTransmitter.start()
+        inboundPacketProcessor.start()
+        watchdogMonitor.start()
     }
+
+    val state: StateFlow<CommunicationState> =
+        combine(
+            stateStore.state,
+            connectionMonitor.connectionState,
+            heartbeatManager.status,
+            commandQueue.queueDepth,
+            usbSerialManager.connection,
+        ) { baseState, connectionState, heartbeatStatus, queueDepth, usbConnection ->
+            baseState.copy(
+                connectionState = connectionState,
+                safety = mergeSafetyState(baseState.safety, heartbeatStatus.isHealthy),
+                diagnostics =
+                    mergeDiagnostics(
+                        diagnosticsState = baseState.diagnostics,
+                        queueDepth = queueDepth,
+                        usbConnection = usbConnection,
+                        logLevel = baseState.diagnostics.logLevel,
+                    ),
+                warnings = buildWarnings(baseState, connectionState, heartbeatStatus.isHealthy, usbConnection),
+                errors = buildErrors(baseState.errors, usbConnection, connectionState, heartbeatStatus.isHealthy),
+            )
+        }.combine(packetTransmitter.lastOutboundBytes) { baseState, lastBytes ->
+            baseState.copy(
+                diagnostics = baseState.diagnostics.copy(lastOutboundBytes = lastBytes),
+            )
+        }.combine(controllerPreferences.logLevel) { baseState, logLevel ->
+            baseState.copy(
+                diagnostics = baseState.diagnostics.copy(logLevel = logLevel),
+            )
+        }.stateIn(
+            scope = applicationScope,
+            started = SharingStarted.Eagerly,
+            initialValue = CommunicationState(),
+        )
+}
 
 private fun mergeSafetyState(
     safetyState: SafetyState,

@@ -26,6 +26,10 @@ class SettingsViewModel
             robotRepository.systemController.updateLogLevel(logLevel)
         }
 
+        fun toggleShowPacketsOverlay(enabled: Boolean) {
+            robotRepository.systemController.updateShowPacketsOverlay(enabled)
+        }
+
         fun refreshStatus() {
             viewModelScope.launch {
                 robotRepository.systemController.refreshStatus()

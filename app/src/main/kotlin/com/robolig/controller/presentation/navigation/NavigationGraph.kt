@@ -165,6 +165,7 @@ fun NavigationGraph() {
                 onBackToDrive = { navigateTo(RobotMode.DRIVE.route) },
                 onVideoStreamUrlChanged = settingsViewModel::updateVideoStreamUrl,
                 onLogLevelChanged = settingsViewModel::updateLogLevel,
+                onShowPacketsOverlayChanged = settingsViewModel::toggleShowPacketsOverlay,
                 onRefreshStatus = settingsViewModel::refreshStatus,
             )
         }

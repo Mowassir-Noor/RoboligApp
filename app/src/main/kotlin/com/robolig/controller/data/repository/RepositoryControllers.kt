@@ -106,6 +106,10 @@ class SystemControllerImpl
             communicationSystemController.updateLogLevel(level)
         }
 
+        override fun updateShowPacketsOverlay(enabled: Boolean) {
+            communicationSystemController.updateShowPacketsOverlay(enabled)
+        }
+
         override suspend fun emergencyStop() {
             communicationSystemController.emergencyStop()
         }

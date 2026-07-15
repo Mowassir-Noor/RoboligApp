@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import com.robolig.controller.core.LogLevel
 import com.robolig.controller.domain.model.RobotState
 import com.robolig.controller.presentation.components.RoboligModeButton
+import com.robolig.controller.presentation.components.RoboligToggleButton
 import com.robolig.controller.presentation.theme.RoboligTheme
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -46,6 +47,7 @@ fun SettingsScreen(
     onBackToDrive: () -> Unit,
     onVideoStreamUrlChanged: (String) -> Unit,
     onLogLevelChanged: (LogLevel) -> Unit,
+    onShowPacketsOverlayChanged: (Boolean) -> Unit,
     onRefreshStatus: () -> Unit,
 ) {
     val spacing = RoboligTheme.spacing
@@ -107,6 +109,28 @@ fun SettingsScreen(
                     )
                     RoboligModeButton(label = "Refresh", selected = false, onClick = onRefreshStatus)
                     RoboligModeButton(label = "Back", selected = false, onClick = onBackToDrive)
+                }
+            }
+
+            SettingsCard(
+                title = "Display",
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    text =
+                        "Overlay the live packet counter on the center of every control screen so you can verify the radio link at a glance.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(spacing.panel),
+                    verticalArrangement = Arrangement.spacedBy(spacing.panel),
+                ) {
+                    RoboligToggleButton(
+                        label = "Show Packets",
+                        checked = robotState.showPacketsOverlay,
+                        onToggle = onShowPacketsOverlayChanged,
+                    )
                 }
             }
 

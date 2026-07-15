@@ -12,6 +12,7 @@ import com.robolig.controller.domain.repository.RobotRepository
 import com.robolig.controller.domain.repository.SystemController
 import com.robolig.controller.domain.repository.VideoController
 import com.robolig.controller.robot.RobotStateFactory
+import com.robolig.controller.utils.ControllerPreferences
 import com.robolig.controller.video.VideoStreamManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
@@ -28,6 +29,7 @@ class RobotRepositoryImpl
         communicationManager: CommunicationManager,
         videoStreamManager: VideoStreamManager,
         robotStateFactory: RobotStateFactory,
+        controllerPreferences: ControllerPreferences,
         override val driveController: DriveController,
         override val armController: ArmController,
         override val missionController: MissionController,
@@ -39,14 +41,20 @@ class RobotRepositoryImpl
             combine(
                 communicationManager.state,
                 videoStreamManager.cameraState,
-            ) { communicationState: CommunicationState, cameraState: CameraState ->
+                controllerPreferences.showPacketsOverlay,
+            ) { communicationState: CommunicationState, cameraState: CameraState, showPacketsOverlay: Boolean ->
                 robotStateFactory.create(
                     communicationState = communicationState,
                     cameraState = cameraState,
+                    showPacketsOverlay = showPacketsOverlay,
                 )
             }.stateIn(
                 scope = applicationScope,
                 started = SharingStarted.Eagerly,
-                initialValue = robotStateFactory.create(CommunicationState(), CameraState()),
+                initialValue =
+                    robotStateFactory.create(
+                        communicationState = CommunicationState(),
+                        cameraState = CameraState(),
+                    ),
             )
     }

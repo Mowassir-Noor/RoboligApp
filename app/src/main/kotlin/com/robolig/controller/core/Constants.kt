@@ -77,4 +77,5 @@ object PreferenceConstants {
     const val CONTROLLER_PREFERENCES = "robolig_controller_preferences"
     const val VIDEO_STREAM_URL = "video_stream_url"
     const val LOG_LEVEL = "log_level"
+    const val SHOW_PACKETS_OVERLAY = "show_packets_overlay"
 }

@@ -50,7 +50,7 @@ Key packages:
 ## Protocol Notes
 
 - Header byte: `0xAA`
-- Packet types: vehicle, arm, PTZ, telemetry request/response, emergency stop, heartbeat
+- Packet types: vehicle, arm, PTZ, emergency stop, heartbeat (telemetry request/response were removed — battery, signal, and speed stay at default values on the controller)
 - Sequence number: unsigned 8-bit rollover counter
 - Timestamp: 3-byte millisecond counter since app start
 - Checksum: XOR of bytes `0..30`, written to byte `31`
@@ -73,11 +73,13 @@ env GRADLE_USER_HOME=/tmp/robolig-gradle ./gradlew --no-daemon connectedDebugAnd
 
 ## Device Verification
 
-The current development device is detected through:
+The current development device is a Huawei `AGS6-L09` (1920×1200 landscape, 280 dpi) connected over USB. It is detected through:
 
 ```bash
 /home/mainframe/Android/Sdk/platform-tools/adb devices -l
 ```
+
+On this tablet the debug APK installs and launches cleanly once `USB debugging` is enabled in Developer options. The application is published as `com.robolig.controller.debug` (the debug applicationId suffix); the launcher activity is `com.robolig.controller.presentation.MainActivity`.
 
 If `connectedDebugAndroidTest` fails with `INSTALL_FAILED_USER_RESTRICTED` on Xiaomi/MIUI devices, enable the following on the phone:
 
@@ -113,7 +115,7 @@ Current local verification completed successfully for:
 - `testDebugUnitTest`
 - `assembleDebug`
 
-Instrumentation packaging is healthy, but full connected execution remains device-blocked until MIUI allows APK installation over USB.
+The debug APK installs and runs on the connected Huawei tablet; manual end-to-end smoke tests (joystick input → packet capture in the diagnostic overlay, mode switching, E-STOP latch) are passing as of July 15, 2026.
 
 
 
@@ -125,7 +127,7 @@ Instrumentation packaging is healthy, but full connected execution remains devic
 
 This document explains the current Android tablet UI, the purpose of each page, the function of each major component, and the runtime flow behind the app.
 
-The screenshots in this file were captured on the connected Huawei `AGS6-L09` tablet on July 2, 2026. The capture session was disconnected from the robot and had no MJPEG URL configured, so the images show placeholder camera and telemetry states.
+The screenshots in this file were captured on the connected Huawei `AGS6-L09` tablet on July 15, 2026. The capture session was disconnected from the robot and had no MJPEG URL configured, so the images show placeholder camera and telemetry states. The "Show Packets" diagnostic overlay was toggled on in the captures that include the centered packet card.
 
 The current operator top bar contains `Drive`, `Gripper`, `Zipline`, `Auto`, a warning chip, `E-STOP`, and `Settings`. The `About` page still exists in navigation, but it is no longer exposed by a top-bar button.
 
@@ -141,8 +143,8 @@ Operator touch
   -> OutboundCommandScheduler builds packets
   -> CommandQueue prioritizes them
   -> PacketTransmitter writes raw bytes to USB serial
-  -> Robot responds with heartbeat and telemetry
-  -> InboundPacketProcessor validates and applies the response
+  -> Robot responds with heartbeat
+  -> InboundPacketProcessor validates and applies heartbeat / E-STOP
   -> RobotStateFactory combines communication state + camera state
   -> StateFlow<RobotState> updates Compose UI
 ```
@@ -221,6 +223,8 @@ The `Drive`, `Gripper`, `Zipline`, and `Auto` pages all share the same shell bui
   - First warning chip, if any
   - Compact `E-STOP`
   - Compact `Settings`
+
+Battery, signal, and speed are only updated when a telemetry response is received from the bridge. Telemetry requests have been removed, so these three values stay at their defaults (`Unknown`, `Unknown`, `0.0 m/s`) until telemetry is re-enabled. Connection, task, FPS, and latency are computed locally and remain live.
 
 Important helpers inside `TelemetryBar`.
 
@@ -490,6 +494,8 @@ On-screen components:
   - `Apply`
   - `Refresh`
   - `Back`
+- `Display` card:
+  - `Show Packets` toggle — when enabled, every manual control screen shows a centered overlay with the most recent outbound packet (see *Packet diagnostics overlay* below)
 - `Logging Level` card:
   - one button per `LogLevel`
 - `Controller Diagnostics` card:
@@ -506,6 +512,7 @@ Behavior:
 - `Apply` persists the MJPEG URL.
 - `Refresh` asks the system controller to refresh USB connection state.
 - `Back` returns to drive.
+- `Show Packets` toggles the diagnostic overlay on every control screen.
 
 How it works under the hood:
 
@@ -515,6 +522,9 @@ How it works under the hood:
 - That call reaches `VideoControllerImpl`, then `VideoStreamManager.updateStreamUrl(...)`, then `ControllerPreferences`.
 - `ControllerPreferences` writes the URL into `SharedPreferences`.
 - `VideoStreamManager` is already collecting that preference flow, so it cancels the previous MJPEG job and starts a new reconnect loop automatically.
+- `Show Packets` calls `SettingsViewModel.toggleShowPacketsOverlay(...)`, which reaches `SystemController.updateShowPacketsOverlay(...)` and finally `ControllerPreferences.updateShowPacketsOverlay(...)`. The value is persisted in `SharedPreferences` under the `show_packets_overlay` key.
+- `OutboundCommandScheduler` reads the preference: when the toggle is on, it bypasses the `isSerialOpen` gate so the production factory still builds packets even with no controlbox attached.
+- `PacketTransmitter` captures each built packet's bytes into `lastOutboundBytes`, filtered by current mode and skipping `HEARTBEAT`. The `RobotControlScaffold` reads that flow and renders the overlay (see *Packet diagnostics overlay*).
 - `LoggingLevelButtons` writes the selected `LogLevel` into `ControllerPreferences`.
 - `CommunicationManager` merges that preference back into `DiagnosticsState.logLevel`.
 - `DiagnosticsGrid` values come from the communication layer, not from local UI state.
@@ -614,6 +624,9 @@ The entire UI is driven from [RobotState.kt](app/src/main/kotlin/com/robolig/con
 - `diagnostics`
 - `warnings`
 - `errors`
+- `showPacketsOverlay` — whether the diagnostic packet overlay is currently enabled
+
+`DiagnosticsState` now also carries `lastOutboundBytes: ByteArray?` — the most recent packet bytes captured by `PacketTransmitter`, filtered by current mode and skipping `HEARTBEAT`. The packet overlay reads this field; everything else in the app ignores it.
 
 Important sub-models:
 
@@ -681,6 +694,7 @@ The ViewModels are intentionally thin.
 - [SettingsViewModel.kt](app/src/main/kotlin/com/robolig/controller/presentation/viewmodel/SettingsViewModel.kt)
   - video stream URL
   - log level
+  - show-packets toggle
   - refresh status
 
 The important design point is that no ViewModel talks directly to USB, packet code, or MJPEG internals.
@@ -798,7 +812,6 @@ Loop timings:
 
 - vehicle control: `60 Hz`
 - arm control: `30 Hz`
-- telemetry request: `10 Hz`
 - heartbeat: every `500 ms`
 
 Behavior:
@@ -808,12 +821,14 @@ Behavior:
   - watchdog is not triggered
   - vehicle is not locked
   - current mode is `Drive`, `Gripper`, or `Zipline`
+  - USB serial is open, **or** the `Show Packets` diagnostic overlay is on
 - Arm packets are sent only when:
   - emergency stop is not latched
   - watchdog is not triggered
   - arm is not locked
   - current mode is `Gripper` or `Zipline`
-- Telemetry requests and heartbeats are sent only when USB serial is open.
+  - USB serial is open, **or** the `Show Packets` diagnostic overlay is on
+- Heartbeats are sent only when USB serial is open. The `Show Packets` toggle does not bypass this gate; heartbeats are noise from an operator-diagnostics perspective.
 - Before each arm packet, `ArmKinematicsSolver` updates target pose and joint angles in state.
 
 ## CommandQueue and packet priority
@@ -825,7 +840,6 @@ Priority order:
 - `EMERGENCY_STOP`
 - `HEARTBEAT`
 - `STANDARD`
-- `TELEMETRY`
 
 Within the same priority, the queue uses an increasing sequence id so older packets are sent first.
 
@@ -833,7 +847,6 @@ This is important because:
 
 - emergency stop must jump ahead of all normal traffic
 - heartbeats must stay ahead of ordinary drive/arm frames
-- telemetry requests are lowest priority
 
 ## Packet generation, encoding, and validation
 
@@ -887,16 +900,40 @@ When a packet arrives:
 - invalid packets increment `invalidPackets`
 - sequence gaps increment `droppedPackets`
 - successful packets update `lastValidPacketAtMs`
-- telemetry responses are mapped into user-facing state
 - heartbeat packets mark heartbeat healthy
 - emergency stop packets latch emergency stop in state
+- any other packet type is ignored — telemetry responses are no longer processed (battery, signal, speed, temperature, current, latency stay at their defaults)
 
-Telemetry processing also:
+The protocol layer still defines `TelemetryResponsePayload` and the `TELEMETRY_RESPONSE` `PacketType`; they are part of the wire contract and may be reused if telemetry is reintroduced.
 
-- maps raw speed into percent and meters per second
-- maps current, CPU load, and temperature values
-- recomputes displayed latency from heartbeat timestamps
-- applies the reported robot mode with `applyMode(...)`
+## Packet diagnostics overlay
+
+The `Show Packets` toggle in **Settings → Display** is an operator-facing diagnostic that shows the exact packet bytes the production pipeline is about to send, centered on every manual control screen (`Drive`, `Gripper`, `Zipline`, `Auto`).
+
+What it does:
+
+- `OutboundCommandScheduler` reads `ControllerPreferences.showPacketsOverlay`. When the toggle is on, the schedulers bypass the `isSerialOpen` gate so the factory still builds packets even when the robot is not attached. The packets still flow into `usbSerialManager.send(...)` and are dropped there as usual.
+- `PacketTransmitter.drainAndSend()` captures each built packet's 32 raw bytes into a `StateFlow<ByteArray?>`. Two filters are applied:
+  - `HEARTBEAT` is never captured (it would dominate the overlay and has no payload to inspect).
+  - Capture is restricted to the packet type that matches the current mode: `VEHICLE_CONTROL` only in `DRIVE`, `ARM_CONTROL` only in `GRIPPER`/`ZIPLINE`. In `AUTO` no control packets flow so the overlay shows its "Waiting…" fallback. `EMERGENCY_STOP` is always captured, even from `AUTO`, so the operator can verify the byte sequence after pressing the E-STOP.
+- `CommunicationManager` chains a `combine` over `packetTransmitter.lastOutboundBytes` and copies the bytes into `DiagnosticsState.lastOutboundBytes`.
+- `RobotControlScaffold` renders an `OutboundPacketOverlay` when `robotState.showPacketsOverlay == true`.
+
+What the overlay shows:
+
+- Header line: `VEHICLE_CONTROL #042` (decoded `PacketType` + zero-padded sequence number) plus a `sent=N` total counter.
+- Timestamp decoded from bytes `[28..30]` (24-bit little-endian milliseconds).
+- Decoded payload summary, per type:
+  - `VEHICLE_CONTROL`: `moveX`, `moveY`, `rot` (signed), `throttle`, `brake`, `boost` (signed, with explicit `+`/`-` so the operator can spot asymmetry at a glance).
+  - `ARM_CONTROL`: `shoulder`, `elbow`, `wristPitch`, `wristRoll`, `gripperRotation` (degrees), `gripper` (`CLOSED`/`OPEN(N)`).
+  - `TELEMETRY_REQUEST` / `HEARTBEAT` / `EMERGENCY_STOP` / unknown: a one-line description explaining what the packet is for.
+- 32-byte hex dump, grouped 8 bytes per row, in a monospace font.
+- Decoded flag summary: `flags=E-STOP|PRECISION|ARM-LOCK|VEH-LOCK|AUTO` or `flags=none`.
+
+Skipped intentionally:
+
+- Heartbeat is filtered out at the capture point — same line of code, no need for an extra `LaunchedEffect` in the composable.
+- Telemetry bytes are never captured because the telemetry loop is gone; the overlay only ever shows the protocol layers the controller is actively transmitting.
 
 ## USB serial manager
 

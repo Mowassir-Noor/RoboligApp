@@ -14,4 +14,5 @@ data class RobotState(
     val diagnostics: DiagnosticsState = DiagnosticsState(),
     val warnings: List<String> = emptyList(),
     val errors: List<String> = emptyList(),
+    val showPacketsOverlay: Boolean = false,
 )

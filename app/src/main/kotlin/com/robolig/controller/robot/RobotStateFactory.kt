@@ -13,6 +13,7 @@ class RobotStateFactory
         fun create(
             communicationState: CommunicationState,
             cameraState: CameraState,
+            showPacketsOverlay: Boolean = false,
         ): RobotState {
             val warnings =
                 buildList {
@@ -41,6 +42,7 @@ class RobotStateFactory
                 diagnostics = communicationState.diagnostics,
                 warnings = warnings,
                 errors = errors,
+                showPacketsOverlay = showPacketsOverlay,
             )
         }
     }

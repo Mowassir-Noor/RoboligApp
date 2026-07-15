@@ -211,6 +211,10 @@ class CommunicationSystemController
             controllerPreferences.updateLogLevel(level)
         }
 
+        fun updateShowPacketsOverlay(enabled: Boolean) {
+            controllerPreferences.updateShowPacketsOverlay(enabled)
+        }
+
         suspend fun emergencyStop() {
             commandQueue.clear()
             stateStore.update { currentState ->

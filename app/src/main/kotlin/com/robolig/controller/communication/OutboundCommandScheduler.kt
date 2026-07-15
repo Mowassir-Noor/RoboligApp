@@ -7,6 +7,7 @@ import com.robolig.controller.protocol.PacketPriority
 import com.robolig.controller.protocol.RobotPacketFactory
 import com.robolig.controller.robot.ArmKinematicsSolver
 import com.robolig.controller.usb.UsbSerialManager
+import com.robolig.controller.utils.ControllerPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -24,6 +25,7 @@ class OutboundCommandScheduler
         private val armKinematicsSolver: ArmKinematicsSolver,
         private val heartbeatManager: HeartbeatManager,
         private val usbSerialManager: UsbSerialManager,
+        private val controllerPreferences: ControllerPreferences,
         @ApplicationScope private val applicationScope: CoroutineScope,
     ) {
         private var started = false
@@ -35,7 +37,6 @@ class OutboundCommandScheduler
             started = true
             applicationScope.launch { vehicleLoop() }
             applicationScope.launch { armLoop() }
-            applicationScope.launch { telemetryLoop() }
             applicationScope.launch { heartbeatLoop() }
         }
 
@@ -43,7 +44,7 @@ class OutboundCommandScheduler
             while (applicationScope.isActive) {
                 delay(ControlLoopConstants.VEHICLE_CONTROL_PERIOD_MS)
                 val state = stateStore.state.value
-                if (!shouldSendVehicle(state) || !usbSerialManager.connection.value.isSerialOpen) {
+                if (!shouldSendVehicle(state) || !isTransmissionAllowed()) {
                     continue
                 }
 
@@ -59,7 +60,7 @@ class OutboundCommandScheduler
             while (applicationScope.isActive) {
                 delay(ControlLoopConstants.ARM_CONTROL_PERIOD_MS)
                 val state = stateStore.state.value
-                if (!shouldSendArm(state) || !usbSerialManager.connection.value.isSerialOpen) {
+                if (!shouldSendArm(state) || !isTransmissionAllowed()) {
                     continue
                 }
 
@@ -88,26 +89,10 @@ class OutboundCommandScheduler
             }
         }
 
-        private suspend fun telemetryLoop() {
-            while (applicationScope.isActive) {
-                delay(ControlLoopConstants.TELEMETRY_PERIOD_MS)
-                if (!usbSerialManager.connection.value.isSerialOpen) {
-                    continue
-                }
-
-                val state = stateStore.state.value
-                commandQueue.enqueue(
-                    packet = packetFactory.createTelemetryRequestPacket(state.currentMode, state.safety),
-                    priority = PacketPriority.TELEMETRY,
-                    description = "Telemetry request",
-                )
-            }
-        }
-
         private suspend fun heartbeatLoop() {
             while (applicationScope.isActive) {
                 delay(ControlLoopConstants.HEARTBEAT_INTERVAL_MS)
-                if (!usbSerialManager.connection.value.isSerialOpen) {
+                if (!isTransmissionAllowed()) {
                     heartbeatManager.reset()
                     continue
                 }
@@ -121,6 +106,10 @@ class OutboundCommandScheduler
                 )
             }
         }
+
+        private fun isTransmissionAllowed(): Boolean =
+            usbSerialManager.connection.value.isSerialOpen ||
+                controllerPreferences.showPacketsOverlay.value
     }
 
 private fun shouldSendVehicle(state: CommunicationState): Boolean =

@@ -2,12 +2,9 @@ package com.robolig.controller.communication
 
 import com.robolig.controller.core.AppLogger
 import com.robolig.controller.core.ApplicationScope
-import com.robolig.controller.core.LogTag
-import com.robolig.controller.core.TelemetryConstants
 import com.robolig.controller.protocol.PacketDecodeResult
 import com.robolig.controller.protocol.PacketDecoder
 import com.robolig.controller.protocol.PacketType
-import com.robolig.controller.protocol.TelemetryResponsePayload
 import com.robolig.controller.usb.UsbSerialManager
 import com.robolig.controller.utils.MonotonicClock
 import kotlinx.coroutines.CoroutineScope
@@ -86,7 +83,6 @@ class InboundPacketProcessor
         ) {
             when (packetType) {
                 PacketType.HEARTBEAT -> heartbeatManager.markReceived()
-                PacketType.TELEMETRY_RESPONSE -> applyTelemetry(payload)
                 PacketType.EMERGENCY_STOP ->
                     stateStore.update { currentState ->
                         currentState.copy(
@@ -95,51 +91,6 @@ class InboundPacketProcessor
                         )
                     }
                 else -> Unit
-            }
-        }
-
-        private fun applyTelemetry(payload: ByteArray) {
-            val telemetry = TelemetryResponsePayload.fromPayload(payload)
-            val speedPercent = ((telemetry.currentSpeedRaw / 255f) * 100f).toInt().coerceIn(0, 100)
-            val speedMetersPerSecond =
-                (telemetry.currentSpeedRaw / 255f) * TelemetryConstants.MAX_SPEED_METERS_PER_SECOND
-            stateStore.update { currentState ->
-                applyMode(currentState, telemetry.currentMode).copy(
-                    battery =
-                        currentState.battery.copy(
-                            percentage = telemetry.batteryPercent,
-                            isLow = telemetry.batteryPercent <= 20,
-                        ),
-                    signal =
-                        currentState.signal.copy(
-                            strengthPercent = telemetry.signalPercent,
-                            warning = telemetry.signalPercent <= 25,
-                        ),
-                    vehicle =
-                        currentState.vehicle.copy(
-                            speedPercent = speedPercent,
-                            speedMetersPerSecond = speedMetersPerSecond,
-                        ),
-                    telemetry =
-                        currentState.telemetry.copy(
-                            temperatureCelsius = telemetry.temperatureCelsius,
-                            cpuLoadPercent = telemetry.cpuLoadPercent,
-                            motorCurrentAmps =
-                                telemetry.motorCurrentRaw * TelemetryConstants.CURRENT_SCALE_AMPS_PER_LSB,
-                            armCurrentAmps =
-                                telemetry.armCurrentRaw * TelemetryConstants.CURRENT_SCALE_AMPS_PER_LSB,
-                            errorCode = telemetry.errorCode,
-                            latencyMs =
-                                heartbeatManager.status.value.lastReceivedAtMs?.let { receivedAtMs ->
-                                    heartbeatManager.status.value.lastSentAtMs?.let { sentAtMs ->
-                                        (receivedAtMs - sentAtMs).toInt()
-                                    }
-                                },
-                        ),
-                )
-            }
-            if (telemetry.errorCode != 0) {
-                logger.w(LogTag.PACKET, "Robot telemetry reported error code ${telemetry.errorCode}")
             }
         }
     }
