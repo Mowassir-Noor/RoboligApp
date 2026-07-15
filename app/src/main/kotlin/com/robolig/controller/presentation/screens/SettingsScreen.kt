@@ -48,6 +48,7 @@ fun SettingsScreen(
     onVideoStreamUrlChanged: (String) -> Unit,
     onLogLevelChanged: (LogLevel) -> Unit,
     onShowPacketsOverlayChanged: (Boolean) -> Unit,
+    onUseDeviceCameraChanged: (Boolean) -> Unit,
     onRefreshStatus: () -> Unit,
 ) {
     val spacing = RoboligTheme.spacing
@@ -109,6 +110,28 @@ fun SettingsScreen(
                     )
                     RoboligModeButton(label = "Refresh", selected = false, onClick = onRefreshStatus)
                     RoboligModeButton(label = "Back", selected = false, onClick = onBackToDrive)
+                }
+            }
+
+            SettingsCard(
+                title = "Camera Source",
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    text =
+                        "When enabled, the operator panel shows frames from this tablet's back camera instead of the MJPEG stream.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(spacing.panel),
+                    verticalArrangement = Arrangement.spacedBy(spacing.panel),
+                ) {
+                    RoboligToggleButton(
+                        label = "Use Device Camera",
+                        checked = robotState.useDeviceCamera,
+                        onToggle = onUseDeviceCameraChanged,
+                    )
                 }
             }
 

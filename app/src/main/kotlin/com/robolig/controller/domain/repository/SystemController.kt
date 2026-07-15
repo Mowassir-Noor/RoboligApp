@@ -15,6 +15,8 @@ interface SystemController {
 
     fun updateShowPacketsOverlay(enabled: Boolean)
 
+    fun updateUseDeviceCamera(enabled: Boolean)
+
     suspend fun emergencyStop()
 
     suspend fun resetEmergencyStop()

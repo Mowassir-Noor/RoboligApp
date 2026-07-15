@@ -19,7 +19,7 @@ The official UI reference image is `docs/UI/robot app DesignV2_1.png`.
 - UI: Jetpack Compose + Material 3
 - Architecture: MVVM + Hilt + Flow/StateFlow
 - Robot control transport: USB serial at `115200` baud through Deneyap Mini v2
-- Video transport: independent WiFi MJPEG stream
+- Video transport: independent WiFi MJPEG stream, or the tablet's own back camera (CameraX)
 - Packet size: fixed `32` bytes
 - Safety: heartbeat, watchdog, auto-stop, emergency stop, packet validation, checksum validation, sequence validation
 
@@ -37,7 +37,7 @@ Key packages:
 - `app/src/main/kotlin/com/robolig/controller/communication`: control loops, queueing, heartbeat, watchdog, inbound/outbound processing
 - `app/src/main/kotlin/com/robolig/controller/protocol`: packet model, checksum, encoder, parser, decoder, packet factory
 - `app/src/main/kotlin/com/robolig/controller/usb`: USB permission and serial managers
-- `app/src/main/kotlin/com/robolig/controller/video`: MJPEG stream manager and decoder
+- `app/src/main/kotlin/com/robolig/controller/video`: MJPEG stream manager, device camera manager (CameraX) and decoder
 - `app/src/main/kotlin/com/robolig/controller/robot`: state factory and arm kinematics
 
 ## Control Modes
@@ -115,7 +115,7 @@ Current local verification completed successfully for:
 - `testDebugUnitTest`
 - `assembleDebug`
 
-The debug APK installs and runs on the connected Huawei tablet; manual end-to-end smoke tests (joystick input → packet capture in the diagnostic overlay, mode switching, E-STOP latch) are passing as of July 15, 2026.
+The debug APK installs and runs on the connected Huawei tablet; manual end-to-end smoke tests (joystick input → packet capture in the diagnostic overlay, mode switching, E-STOP latch, device-camera live preview) are passing as of July 15, 2026.
 
 
 
@@ -127,7 +127,7 @@ The debug APK installs and runs on the connected Huawei tablet; manual end-to-en
 
 This document explains the current Android tablet UI, the purpose of each page, the function of each major component, and the runtime flow behind the app.
 
-The screenshots in this file were captured on the connected Huawei `AGS6-L09` tablet on July 15, 2026. The capture session was disconnected from the robot and had no MJPEG URL configured, so the images show placeholder camera and telemetry states. The "Show Packets" diagnostic overlay was toggled on in the captures that include the centered packet card.
+The screenshots in this file were captured on the connected Huawei `AGS6-L09` tablet on July 15, 2026. The capture session was disconnected from the robot and had no MJPEG URL configured, so the images show the device-camera feed (after toggling `Use Device Camera` on) and placeholder telemetry states. The "Show Packets" diagnostic overlay was toggled on in the captures that include the centered packet card.
 
 The current operator top bar contains `Drive`, `Gripper`, `Zipline`, `Auto`, a warning chip, `E-STOP`, and `Settings`. The `About` page still exists in navigation, but it is no longer exposed by a top-bar button.
 
@@ -494,6 +494,8 @@ On-screen components:
   - `Apply`
   - `Refresh`
   - `Back`
+- `Camera Source` card:
+  - `Use Device Camera` toggle — when enabled, every manual control screen shows frames from this tablet's back camera instead of the MJPEG stream. Asks for the `CAMERA` runtime permission the first time it is enabled.
 - `Display` card:
   - `Show Packets` toggle — when enabled, every manual control screen shows a centered overlay with the most recent outbound packet (see *Packet diagnostics overlay* below)
 - `Logging Level` card:
@@ -512,6 +514,7 @@ Behavior:
 - `Apply` persists the MJPEG URL.
 - `Refresh` asks the system controller to refresh USB connection state.
 - `Back` returns to drive.
+- `Use Device Camera` binds CameraX to the back camera and routes its frames into `CameraState`. The MJPEG stream keeps running in the background but its frames are ignored while the toggle is on. See *Device camera* below.
 - `Show Packets` toggles the diagnostic overlay on every control screen.
 
 How it works under the hood:
@@ -523,6 +526,7 @@ How it works under the hood:
 - `ControllerPreferences` writes the URL into `SharedPreferences`.
 - `VideoStreamManager` is already collecting that preference flow, so it cancels the previous MJPEG job and starts a new reconnect loop automatically.
 - `Show Packets` calls `SettingsViewModel.toggleShowPacketsOverlay(...)`, which reaches `SystemController.updateShowPacketsOverlay(...)` and finally `ControllerPreferences.updateShowPacketsOverlay(...)`. The value is persisted in `SharedPreferences` under the `show_packets_overlay` key.
+- `Use Device Camera` calls `SettingsViewModel.toggleUseDeviceCamera(...)`, which reaches `SystemController.updateUseDeviceCamera(...)` and finally `ControllerPreferences.updateUseDeviceCamera(...)`. The value is persisted under the `use_device_camera` key. A `DeviceCameraBinder` composable inside `RobotControlScaffold` reads the toggle, requests the `CAMERA` runtime permission the first time it is needed, then calls `DeviceCameraManager.start(LifecycleOwner)`. When the toggle is flipped off or the screen is disposed, the binder calls `DeviceCameraManager.stop()` and the camera is unbound.
 - `OutboundCommandScheduler` reads the preference: when the toggle is on, it bypasses the `isSerialOpen` gate so the production factory still builds packets even with no controlbox attached.
 - `PacketTransmitter` captures each built packet's bytes into `lastOutboundBytes`, filtered by current mode and skipping `HEARTBEAT`. The `RobotControlScaffold` reads that flow and renders the overlay (see *Packet diagnostics overlay*).
 - `LoggingLevelButtons` writes the selected `LogLevel` into `ControllerPreferences`.
@@ -625,8 +629,9 @@ The entire UI is driven from [RobotState.kt](app/src/main/kotlin/com/robolig/con
 - `warnings`
 - `errors`
 - `showPacketsOverlay` — whether the diagnostic packet overlay is currently enabled
+- `useDeviceCamera` — whether the operator panel should render frames from this tablet's back camera instead of the MJPEG stream
 
-`DiagnosticsState` now also carries `lastOutboundBytes: ByteArray?` — the most recent packet bytes captured by `PacketTransmitter`, filtered by current mode and skipping `HEARTBEAT`. The packet overlay reads this field; everything else in the app ignores it.
+`DiagnosticsState` now also carries `lastOutboundBytes: ByteArray?` and `lastOutboundSecondaryBytes: ByteArray?` — the most recent packet bytes captured by `PacketTransmitter`, filtered by current mode and skipping `HEARTBEAT`. The packet overlay reads these fields; everything else in the app ignores them.
 
 Important sub-models:
 
@@ -695,6 +700,7 @@ The ViewModels are intentionally thin.
   - video stream URL
   - log level
   - show-packets toggle
+  - use-device-camera toggle
   - refresh status
 
 The important design point is that no ViewModel talks directly to USB, packet code, or MJPEG internals.
@@ -1063,6 +1069,23 @@ Important design decision:
 
 - video state is completely separate from USB control state
 - a broken camera stream does not stop manual robot control
+
+## Device camera
+
+The `Use Device Camera` toggle in **Settings → Camera Source** swaps the operator panel from the MJPEG feed to a live preview of this tablet's back camera. The implementation lives next to the MJPEG manager:
+
+- [DeviceCameraManager.kt](app/src/main/kotlin/com/robolig/controller/video/DeviceCameraManager.kt)
+- [DeviceCameraViewModel.kt](app/src/main/kotlin/com/robolig/controller/video/DeviceCameraViewModel.kt)
+
+How it works:
+
+- `DeviceCameraManager` is a Hilt singleton. `start(lifecycleOwner)` awaits `ProcessCameraProvider.getInstance(context)`, binds `CameraSelector.DEFAULT_BACK_CAMERA` and an `ImageAnalysis` use case with `STRATEGY_KEEP_ONLY_LATEST` to the given lifecycle, and registers a `JpegFrameAnalyzer` on a single-thread background executor. `stop()` calls `provider.unbindAll()` and shuts the executor down.
+- The analyzer converts each `ImageProxy` from `YUV_420_888` to `NV21` and compresses to JPEG at quality 60, 640×480. Each resulting byte array is published to `_frameBytes: MutableStateFlow<ByteArray?>`. Compression runs off the main thread so Compose recomposition is not blocked.
+- `DeviceCameraViewModel` wraps the singleton for the composable layer. A private `DeviceCameraBinder` inside `RobotControlScaffold` calls `viewModel.bind(lifecycleOwner)` when the toggle is on, and `viewModel.unbind()` when it is off or the screen is disposed. The first time the toggle is enabled the binder checks `Manifest.permission.CAMERA` and, if missing, launches the system permission dialog via `rememberLauncherForActivityResult`.
+- `RobotRepositoryImpl` now has a 5-way `combine` that adds `deviceCameraManager.frameBytes` and `controllerPreferences.useDeviceCamera` to the previous inputs. `mergeCameraState(...)` substitutes the device frame into `CameraState` while the toggle is on, sets `status = STREAMING`, and bumps a monotonic `deviceFrameSequence` counter so `CameraView`'s `remember(cameraState.frameSequence)` cache invalidates per device frame and the bitmap is re-decoded.
+- The MJPEG stream keeps running in the background while the device camera is on. Its frames are simply not selected by `mergeCameraState`. Flipping the toggle back off returns the panel to the MJPEG feed without any reconnection delay.
+
+Why the monotonic counter instead of `mjpegState.frameSequence + 1`: when MJPEG is idle, `mjpegState.frameSequence` is stuck at `0`, so `0 + 1 = 1` for every device frame. `CameraView` keys its `remember` block on `frameSequence`; a stable key returns the cached first-frame bitmap, so the panel appeared stuck on one image even though the StateFlow was firing. The local counter guarantees a unique key per device frame, which is the same pattern `VideoStreamManager` already uses for MJPEG.
 
 ## RobotStateFactory
 

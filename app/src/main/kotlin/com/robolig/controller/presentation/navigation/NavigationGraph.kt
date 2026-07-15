@@ -166,6 +166,7 @@ fun NavigationGraph() {
                 onVideoStreamUrlChanged = settingsViewModel::updateVideoStreamUrl,
                 onLogLevelChanged = settingsViewModel::updateLogLevel,
                 onShowPacketsOverlayChanged = settingsViewModel::toggleShowPacketsOverlay,
+                onUseDeviceCameraChanged = settingsViewModel::toggleUseDeviceCamera,
                 onRefreshStatus = settingsViewModel::refreshStatus,
             )
         }

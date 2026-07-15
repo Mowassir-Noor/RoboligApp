@@ -14,6 +14,7 @@ class RobotStateFactory
             communicationState: CommunicationState,
             cameraState: CameraState,
             showPacketsOverlay: Boolean = false,
+            useDeviceCamera: Boolean = false,
         ): RobotState {
             val warnings =
                 buildList {
@@ -43,6 +44,7 @@ class RobotStateFactory
                 warnings = warnings,
                 errors = errors,
                 showPacketsOverlay = showPacketsOverlay,
+                useDeviceCamera = useDeviceCamera,
             )
         }
     }

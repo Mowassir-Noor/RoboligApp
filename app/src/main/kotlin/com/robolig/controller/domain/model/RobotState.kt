@@ -15,4 +15,5 @@ data class RobotState(
     val warnings: List<String> = emptyList(),
     val errors: List<String> = emptyList(),
     val showPacketsOverlay: Boolean = false,
+    val useDeviceCamera: Boolean = false,
 )

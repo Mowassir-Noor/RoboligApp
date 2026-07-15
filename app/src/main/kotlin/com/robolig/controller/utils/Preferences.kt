@@ -13,12 +13,15 @@ interface ControllerPreferences {
     val videoStreamUrl: StateFlow<String>
     val logLevel: StateFlow<LogLevel>
     val showPacketsOverlay: StateFlow<Boolean>
+    val useDeviceCamera: StateFlow<Boolean>
 
     fun updateVideoStreamUrl(url: String)
 
     fun updateLogLevel(level: LogLevel)
 
     fun updateShowPacketsOverlay(enabled: Boolean)
+
+    fun updateUseDeviceCamera(enabled: Boolean)
 }
 
 @Singleton
@@ -41,10 +44,15 @@ class ControllerPreferencesImpl
             MutableStateFlow(
                 sharedPreferences.getBoolean(PreferenceConstants.SHOW_PACKETS_OVERLAY, false),
             )
+        private val useDeviceCameraState =
+            MutableStateFlow(
+                sharedPreferences.getBoolean(PreferenceConstants.USE_DEVICE_CAMERA, false),
+            )
 
         override val videoStreamUrl: StateFlow<String> = videoStreamUrlState.asStateFlow()
         override val logLevel: StateFlow<LogLevel> = logLevelState.asStateFlow()
         override val showPacketsOverlay: StateFlow<Boolean> = showPacketsOverlayState.asStateFlow()
+        override val useDeviceCamera: StateFlow<Boolean> = useDeviceCameraState.asStateFlow()
 
         override fun updateVideoStreamUrl(url: String) {
             val normalizedUrl = url.trim()
@@ -84,5 +92,18 @@ class ControllerPreferencesImpl
                 .apply()
 
             showPacketsOverlayState.value = enabled
+        }
+
+        override fun updateUseDeviceCamera(enabled: Boolean) {
+            if (useDeviceCameraState.value == enabled) {
+                return
+            }
+
+            sharedPreferences
+                .edit()
+                .putBoolean(PreferenceConstants.USE_DEVICE_CAMERA, enabled)
+                .apply()
+
+            useDeviceCameraState.value = enabled
         }
     }

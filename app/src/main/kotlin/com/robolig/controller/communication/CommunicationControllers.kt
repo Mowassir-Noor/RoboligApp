@@ -215,6 +215,10 @@ class CommunicationSystemController
             controllerPreferences.updateShowPacketsOverlay(enabled)
         }
 
+        fun updateUseDeviceCamera(enabled: Boolean) {
+            controllerPreferences.updateUseDeviceCamera(enabled)
+        }
+
         suspend fun emergencyStop() {
             commandQueue.clear()
             stateStore.update { currentState ->

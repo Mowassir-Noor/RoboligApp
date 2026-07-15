@@ -110,6 +110,10 @@ class SystemControllerImpl
             communicationSystemController.updateShowPacketsOverlay(enabled)
         }
 
+        override fun updateUseDeviceCamera(enabled: Boolean) {
+            communicationSystemController.updateUseDeviceCamera(enabled)
+        }
+
         override suspend fun emergencyStop() {
             communicationSystemController.emergencyStop()
         }

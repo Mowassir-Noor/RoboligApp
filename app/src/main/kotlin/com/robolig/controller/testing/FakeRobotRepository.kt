@@ -169,6 +169,12 @@ class FakeRobotRepository(
                 }
             }
 
+            override fun updateUseDeviceCamera(enabled: Boolean) {
+                robotStateFlow.update { currentState ->
+                    currentState.copy(useDeviceCamera = enabled)
+                }
+            }
+
             override suspend fun emergencyStop() {
                 robotStateFlow.update { currentState ->
                     currentState.copy(

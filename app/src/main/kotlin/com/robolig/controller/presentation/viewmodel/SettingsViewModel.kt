@@ -30,6 +30,10 @@ class SettingsViewModel
             robotRepository.systemController.updateShowPacketsOverlay(enabled)
         }
 
+        fun toggleUseDeviceCamera(enabled: Boolean) {
+            robotRepository.systemController.updateUseDeviceCamera(enabled)
+        }
+
         fun refreshStatus() {
             viewModelScope.launch {
                 robotRepository.systemController.refreshStatus()

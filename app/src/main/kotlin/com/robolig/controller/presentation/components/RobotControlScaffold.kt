@@ -25,13 +25,19 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.robolig.controller.core.ProtocolConstants
 import com.robolig.controller.domain.model.RobotMode
 import com.robolig.controller.domain.model.RobotState
@@ -41,6 +47,7 @@ import com.robolig.controller.protocol.PacketFlags
 import com.robolig.controller.protocol.PacketType
 import com.robolig.controller.protocol.VehicleControlPayload
 import com.robolig.controller.protocol.readTimestamp
+import com.robolig.controller.video.DeviceCameraViewModel
 
 enum class RailActionStyle {
     STANDARD,
@@ -75,6 +82,9 @@ fun RobotControlScaffold(
     overlayContent: @Composable BoxScope.() -> Unit,
 ) {
     val spacing = RoboligTheme.spacing
+
+    DeviceCameraBinder(useDeviceCamera = robotState.useDeviceCamera)
+
     Column(
         modifier =
             modifier
@@ -392,4 +402,41 @@ private fun PacketFlagSummary(bytes: ByteArray) {
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
+}
+
+@Composable
+private fun DeviceCameraBinder(useDeviceCamera: Boolean) {
+    val viewModel: DeviceCameraViewModel = hiltViewModel()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val pendingBindState = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var pendingBind by pendingBindState
+    val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted && pendingBind) {
+            viewModel.bind(lifecycleOwner)
+        }
+        pendingBind = false
+    }
+    LaunchedEffect(useDeviceCamera) {
+        if (!useDeviceCamera) {
+            viewModel.unbind()
+            pendingBind = false
+            return@LaunchedEffect
+        }
+        val granted = androidx.core.content.ContextCompat.checkSelfPermission(
+            context,
+            android.Manifest.permission.CAMERA,
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (granted) {
+            viewModel.bind(lifecycleOwner)
+        } else {
+            pendingBind = true
+            permissionLauncher.launch(android.Manifest.permission.CAMERA)
+        }
+    }
+    DisposableEffect(Unit) {
+        onDispose { viewModel.unbind() }
+    }
 }
