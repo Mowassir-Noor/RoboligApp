@@ -13,4 +13,5 @@ data class DiagnosticsState(
     val reconnectAttempts: Int = 0,
     val logLevel: LogLevel = LogLevel.DEBUG,
     val lastOutboundBytes: ByteArray? = null,
+    val lastOutboundSecondaryBytes: ByteArray? = null,
 )

@@ -30,8 +30,11 @@ class PacketTransmitter
         private val logger: AppLogger,
         @ApplicationScope private val applicationScope: CoroutineScope,
     ) {
-        private val lastOutboundBytesState = MutableStateFlow<ByteArray?>(null)
-        val lastOutboundBytes: StateFlow<ByteArray?> = lastOutboundBytesState.asStateFlow()
+    private val lastOutboundBytesState = MutableStateFlow<ByteArray?>(null)
+    val lastOutboundBytes: StateFlow<ByteArray?> = lastOutboundBytesState.asStateFlow()
+
+    private val lastOutboundSecondaryBytesState = MutableStateFlow<ByteArray?>(null)
+    val lastOutboundSecondaryBytes: StateFlow<ByteArray?> = lastOutboundSecondaryBytesState.asStateFlow()
 
         private var started = false
 
@@ -54,8 +57,10 @@ class PacketTransmitter
             while (true) {
                 val queuedPacket = commandQueue.poll() ?: return
                 val bytes = packetBuilder.build(queuedPacket.packet)
-                if (shouldCapture(queuedPacket.packet.type)) {
-                    lastOutboundBytesState.value = bytes
+                when (classify(queuedPacket.packet.type)) {
+                    CaptureSlot.PRIMARY -> lastOutboundBytesState.value = bytes
+                    CaptureSlot.SECONDARY -> lastOutboundSecondaryBytesState.value = bytes
+                    CaptureSlot.IGNORE -> Unit
                 }
                 val sent = usbSerialManager.send(bytes)
                 if (!sent) {
@@ -67,18 +72,29 @@ class PacketTransmitter
             }
         }
 
-        private fun shouldCapture(type: PacketType): Boolean {
+        private fun classify(type: PacketType): CaptureSlot {
             if (type == PacketType.HEARTBEAT) {
-                return false
+                return CaptureSlot.IGNORE
             }
             if (type == PacketType.EMERGENCY_STOP) {
-                return true
+                return CaptureSlot.PRIMARY
+            }
+            if (type != PacketType.VEHICLE_CONTROL && type != PacketType.ARM_CONTROL) {
+                return CaptureSlot.IGNORE
             }
             val mode = stateStore.state.value.currentMode
-            return when (type) {
-                PacketType.VEHICLE_CONTROL -> mode == RobotMode.DRIVE
-                PacketType.ARM_CONTROL -> mode == RobotMode.GRIPPER || mode == RobotMode.ZIPLINE
-                else -> false
-            }
+            val matchesMode =
+                when (type) {
+                    PacketType.VEHICLE_CONTROL -> mode == RobotMode.DRIVE
+                    PacketType.ARM_CONTROL -> mode == RobotMode.GRIPPER || mode == RobotMode.ZIPLINE
+                    else -> false
+                }
+            return if (matchesMode) CaptureSlot.PRIMARY else CaptureSlot.SECONDARY
         }
+    }
+
+    private enum class CaptureSlot {
+        PRIMARY,
+        SECONDARY,
+        IGNORE,
     }

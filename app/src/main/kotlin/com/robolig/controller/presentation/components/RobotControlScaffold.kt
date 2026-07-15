@@ -106,6 +106,7 @@ fun RobotControlScaffold(
             if (robotState.showPacketsOverlay) {
                 OutboundPacketOverlay(
                     bytes = robotState.diagnostics.lastOutboundBytes,
+                    secondaryBytes = robotState.diagnostics.lastOutboundSecondaryBytes,
                     packetsSent = robotState.diagnostics.packetsSent,
                     modifier = Modifier.align(Alignment.Center),
                 )
@@ -181,6 +182,7 @@ private fun RailContainer(
 @Composable
 private fun OutboundPacketOverlay(
     bytes: ByteArray?,
+    secondaryBytes: ByteArray?,
     packetsSent: Long,
     modifier: Modifier = Modifier,
 ) {
@@ -218,7 +220,57 @@ private fun OutboundPacketOverlay(
             DecodedPayload(bytes = bytes)
             PacketHexDump(bytes = bytes)
             PacketFlagSummary(bytes = bytes)
+
+            if (secondaryBytes != null && secondaryBytes.size == ProtocolConstants.PACKET_SIZE_BYTES) {
+                SecondaryPacketLine(bytes = secondaryBytes)
+            }
         }
+    }
+}
+
+@Composable
+private fun SecondaryPacketLine(bytes: ByteArray) {
+    val type = PacketType.fromWireValue(bytes[1].toInt().and(0xFF))
+    val sequence = bytes[2].toInt().and(0xFF)
+    val label =
+        when (type) {
+            PacketType.VEHICLE_CONTROL -> "drive joystick"
+            PacketType.ARM_CONTROL -> "arm joystick"
+            PacketType.EMERGENCY_STOP -> "e-stop"
+            PacketType.HEARTBEAT -> "heartbeat"
+            PacketType.TELEMETRY_REQUEST -> "telemetry request"
+            PacketType.TELEMETRY_RESPONSE -> "telemetry response"
+            PacketType.PTZ_CONTROL -> "ptz control"
+            null -> "other"
+        }
+    val summary =
+        when (type) {
+            PacketType.VEHICLE_CONTROL -> {
+                val p = VehicleControlPayload.fromPayload(bytes.copyOfRange(4, 4 + ProtocolConstants.PAYLOAD_SIZE_BYTES))
+                "moveX=${formatSigned(p.moveX)} moveY=${formatSigned(p.moveY)} rot=${formatSigned(p.rotation)} " +
+                    "throttle=${formatSigned(p.throttle)} brake=${formatSigned(p.brake)} boost=${formatSigned(p.boost)}"
+            }
+            PacketType.ARM_CONTROL -> {
+                val p = ArmControlPayload.fromPayload(bytes.copyOfRange(4, 4 + ProtocolConstants.PAYLOAD_SIZE_BYTES))
+                "shoulder=${p.shoulder}° elbow=${p.elbow}° wristP=${p.wristPitch}° wristR=${p.wristRoll}° " +
+                    "gripRot=${p.gripperRotation}° gripper=${if (p.gripper == 0) "CLOSED" else "OPEN(${p.gripper})"}"
+            }
+            else -> "no payload"
+        }
+    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        Text(
+            text = "$label · ${type?.name ?: "UNKNOWN"} #${"%03d".format(sequence)}",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = summary,
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontFamily = FontFamily.Monospace,
+                fontSize = 12.sp,
+            ),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

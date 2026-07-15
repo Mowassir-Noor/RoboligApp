@@ -65,6 +65,10 @@ class CommunicationManager
             baseState.copy(
                 diagnostics = baseState.diagnostics.copy(lastOutboundBytes = lastBytes),
             )
+        }.combine(packetTransmitter.lastOutboundSecondaryBytes) { baseState, lastSecondary ->
+            baseState.copy(
+                diagnostics = baseState.diagnostics.copy(lastOutboundSecondaryBytes = lastSecondary),
+            )
         }.combine(controllerPreferences.logLevel) { baseState, logLevel ->
             baseState.copy(
                 diagnostics = baseState.diagnostics.copy(logLevel = logLevel),
