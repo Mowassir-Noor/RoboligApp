@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Deneyap Mini v2 (current board) -->
+    <usb-device vendor-id="12346" product-id="33092" />
+    <!-- Other Deneyap variants (board swap, dev kits, etc.) -->
+    <usb-device vendor-id="12346" product-id="33089" />
+    <usb-device vendor-id="12346" product-id="33095" />
+    <usb-device vendor-id="12346" product-id="33099" />
+</resources>
